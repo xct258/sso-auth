@@ -910,3 +910,39 @@ body.admin-mode #app {
     min-width: 760px;
   }
 }
+
+/* 管理后台背景：壁纸加载完成后才淡入 */
+.admin-bg {
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+
+.admin-bg.loaded {
+  opacity: 1;
+}
+
+.admin-bg img {
+  filter: blur(2px) scale(1.03);
+}
+
+.admin-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(7, 12, 24, 0.64), rgba(7, 12, 24, 0.84)),
+    radial-gradient(circle at 20% 0%, rgba(79, 70, 229, 0.18), transparent 45%);
+}
+
+.admin-shell {
+  position: relative;
+  z-index: 1;
+}
+
+.admin-modal .admin-card-head {
+  padding: 0 0 14px;
+}
+
+.admin-modal .admin-form {
+  padding: 16px 0 0;
+}

@@ -3,13 +3,24 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { adminLogout, adminStatus } from '@/api/admin'
+import {
+  loadWallpaper,
+  wallpaperReady,
+  wallpaperSrc,
+} from '@/composables/useWallpaper'
 
 const router = useRouter()
 const username = ref('')
 
 onMounted(async () => {
-  const status = await adminStatus()
+  const [status, config] = await Promise.all([
+    adminStatus(),
+    fetch('/api/site', { credentials: 'same-origin', cache: 'no-store' })
+      .then((response) => response.json())
+      .catch(() => ({})),
+  ])
   username.value = status.username || ''
+  await loadWallpaper(config.wallpaper_url || '')
 })
 
 async function logout() {
@@ -19,6 +30,10 @@ async function logout() {
 </script>
 
 <template>
+  <div class="bg admin-bg" :class="{ loaded: wallpaperReady }">
+    <img v-if="wallpaperSrc" :src="wallpaperSrc" alt="" />
+  </div>
+
   <div class="admin-shell">
     <aside class="admin-sidebar">
       <div class="admin-brand">

@@ -340,7 +340,12 @@ onMounted(load)
       </div>
     </section>
 
-    <section v-if="showDomainForm" class="admin-card">
+    <div
+      v-if="showDomainForm"
+      class="admin-modal-backdrop"
+      @click.self="showDomainForm = false"
+    >
+      <div class="admin-modal wide">
       <header class="admin-card-head">
         <h2>登录域名设置</h2>
         <button class="admin-btn ghost" type="button" @click="showDomainForm = false">
@@ -376,15 +381,22 @@ onMounted(load)
           <input v-model="domainForm.enabled" type="checkbox" />
           启用
         </label>
+        <p v-if="error" class="admin-alert wide">{{ error }}</p>
         <div class="form-actions">
           <button class="admin-btn primary" type="submit" :disabled="savingDomain">
             {{ savingDomain ? '保存中…' : '保存' }}
           </button>
         </div>
       </form>
-    </section>
+      </div>
+    </div>
 
-    <section v-if="showServiceForm" class="admin-card">
+    <div
+      v-if="showServiceForm"
+      class="admin-modal-backdrop"
+      @click.self="showServiceForm = false"
+    >
+      <div class="admin-modal wide">
       <header class="admin-card-head">
         <h2>{{ editingService ? `编辑 ${editingService.name}` : '添加服务' }}</h2>
         <button class="admin-btn ghost" type="button" @click="showServiceForm = false">
@@ -470,13 +482,15 @@ onMounted(load)
           <input v-model="serviceForm.enabled" type="checkbox" />
           启用
         </label>
+        <p v-if="error" class="admin-alert wide">{{ error }}</p>
         <div class="form-actions">
           <button class="admin-btn primary" type="submit" :disabled="savingService">
             {{ savingService ? '保存中…' : '保存' }}
           </button>
         </div>
       </form>
-    </section>
+      </div>
+    </div>
 
     <section class="admin-card">
       <header class="admin-card-head">
