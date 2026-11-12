@@ -46,7 +46,7 @@ cp .env.example .env
 ```dotenv
 AUTH_ENABLED=true
 SERVICE_ID=taskops
-SSO_VERIFY_URL=http://127.0.0.1:8290/api/auth/verify
+SSO_VERIFY_URL=https://auth.xct258.top/api/auth/verify
 SSO_LOGIN_URL=https://auth.xct258.top/login
 SSO_COOKIE_NAME=sso_taskops
 SSO_COOKIE_DOMAIN=.xct258.top
@@ -135,6 +135,7 @@ auth-server 每次都会检查：
 ```nginx
 location = /_sso_auth {
     internal;
+    # NPM 与 auth-server 同机，内部走回环，避免绕 Cloudflare
     proxy_pass http://127.0.0.1:8290/api/auth/verify?service=taskops;
     proxy_pass_request_body off;
     proxy_set_header Content-Length "";
@@ -180,6 +181,6 @@ curl -i -b /tmp/sso.jar http://127.0.0.1:9000/api/private
 - 每个服务使用不同的 `SSO_COOKIE_NAME`。
 - 业务服务不保存 `SERVICE_SECRET`。
 - auth-server 不可用时，业务服务会拒绝登录；这是集中验签的代价。
-- 如果服务在 Docker bridge 网络，`SSO_VERIFY_URL` 改成 `http://host.docker.internal:8290/api/auth/verify`。
+- 服务统一使用 `https://auth.xct258.top/api/auth/verify`；只有 NPM 同机内部 `auth_request` 才走 `127.0.0.1:8290`。
 - 生产必须 HTTPS，并让 NPM 传 `X-Forwarded-Proto: https`。
 - Cookie 是 HttpOnly，前端读不到，登录状态只看 `/api/auth/status`。

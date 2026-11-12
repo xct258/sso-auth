@@ -127,7 +127,7 @@ uvicorn main:app --host 127.0.0.1 --port 8290
 ```dotenv
 AUTH_ENABLED=true
 SERVICE_ID=taskops
-SSO_VERIFY_URL=http://127.0.0.1:8290/api/auth/verify
+SSO_VERIFY_URL=https://auth.xct258.top/api/auth/verify
 SSO_LOGIN_URL=https://auth.xct258.top/login
 SSO_COOKIE_NAME=sso_taskops
 SSO_COOKIE_DOMAIN=.xct258.top
@@ -248,6 +248,7 @@ app.include_router(auth.router)
 ```nginx
 location = /_sso_auth {
     internal;
+    # NPM 与 auth-server 同机，内部走回环，避免绕 Cloudflare
     proxy_pass http://127.0.0.1:8290/api/auth/verify?service=taskops;
     proxy_pass_request_body off;
     proxy_set_header Content-Length "";
@@ -271,7 +272,7 @@ location @sso_login {
 所有服务统一走 auth-server 集中验签。业务服务不保存 `SERVICE_SECRET`，每个受保护请求带着 Cookie 调用：
 
 ```text
-GET http://127.0.0.1:8290/api/auth/verify?service=<服务ID>
+GET https://auth.xct258.top/api/auth/verify?service=<服务ID>
 ```
 
 auth-server 返回 `204` 放行，`401` 拒绝。
@@ -282,7 +283,7 @@ auth-server 返回 `204` 放行，`401` 拒绝。
 SERVICE_ID=taskops
 SSO_COOKIE_NAME=sso_taskops
 SSO_LOGIN_URL=https://auth.xct258.top/login
-SSO_VERIFY_URL=http://127.0.0.1:8290/api/auth/verify
+SSO_VERIFY_URL=https://auth.xct258.top/api/auth/verify
 ```
 
 当前 `push-server`、`web-TaskOps`、`opencode`、`webtop` 都使用这种方式。

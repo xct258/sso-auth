@@ -1368,7 +1368,7 @@ def service_config(service_id: int, request: Request):
             f"SSO_COOKIE_NAME={service['cookie_name']}",
             f"SSO_COOKIE_DOMAIN={service['cookie_domain']}",
             f"SSO_ALLOWED_REDIRECT_SUFFIX={suffix}",
-            "SSO_VERIFY_URL=http://127.0.0.1:8290/api/auth/verify",
+            f"SSO_VERIFY_URL=https://{service['auth_host']}/api/auth/verify",
             "",
         ]
     )
