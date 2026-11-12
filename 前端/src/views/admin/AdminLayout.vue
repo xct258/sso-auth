@@ -2,37 +2,46 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { adminLogout, adminStatus } from '@/api/admin'
+import LoadingScreen from '@/components/LoadingScreen.vue'
 import {
   loadWallpaper,
+  wallpaperFailed,
+  wallpaperProgress,
   wallpaperReady,
   wallpaperSrc,
+  wallpaperTimedOut,
 } from '@/composables/useWallpaper'
+import { adminLogout, adminStatus } from '@/api/admin'
 
 const router = useRouter()
 const username = ref('')
-const booting = ref(!wallpaperReady.value)
+const siteName = ref('统一登录')
+
+async function fetchSite() {
+  return fetch('/api/site', { credentials: 'same-origin', cache: 'no-store' })
+    .then((response) => response.json())
+    .catch(() => ({}))
+}
 
 onMounted(async () => {
-  const [status, config] = await Promise.all([
-    adminStatus(),
-    fetch('/api/site', { credentials: 'same-origin', cache: 'no-store' })
-      .then((response) => response.json())
-      .catch(() => ({})),
-  ])
+  const [status, config] = await Promise.all([adminStatus(), fetchSite()])
   username.value = status.username || ''
+  if (config.site_name) siteName.value = config.site_name
 
-  if (!wallpaperReady.value) {
-    await Promise.race([
-      loadWallpaper(config.wallpaper_url || ''),
-      new Promise((resolve) => setTimeout(resolve, 4000)),
-    ])
-    booting.value = false
-  } else {
-    // 登录页已经加载过同一张壁纸，直接复用。
+  if (wallpaperReady.value) {
+    // 登录页已经加载过同一张壁纸，直接复用；不会重复请求。
     loadWallpaper(config.wallpaper_url || '')
+    return
   }
+
+  await loadWallpaper(config.wallpaper_url || '')
 })
+
+async function retryWallpaper() {
+  const config = await fetchSite()
+  if (config.site_name) siteName.value = config.site_name
+  await loadWallpaper(config.wallpaper_url || '')
+}
 
 async function logout() {
   await adminLogout()
@@ -45,10 +54,14 @@ async function logout() {
     <img v-if="wallpaperSrc" :src="wallpaperSrc" alt="" />
   </div>
 
-  <div v-if="booting" class="admin-boot">
-    <span class="admin-boot-spinner" aria-hidden="true"></span>
-    <p>正在加载背景…</p>
-  </div>
+  <LoadingScreen
+    v-if="!wallpaperReady"
+    :progress="wallpaperProgress"
+    :site-name="siteName"
+    :failed="wallpaperFailed"
+    :timed-out="wallpaperTimedOut"
+    @retry="retryWallpaper"
+  />
 
   <div v-else class="admin-shell">
     <aside class="admin-sidebar">
