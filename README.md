@@ -286,7 +286,7 @@ signature = HMAC-SHA256(
 服务端校验：
 
 1. `service_id` 必须等于自己的 `SERVICE_ID`
-2. `token_version` 必须等于 auth-server 当前值（`/api/auth/service/<slug>`），约 2 秒同步一次
+2. `token_version` 必须等于 auth-server 当前值（`/api/auth/service/<slug>`），每次访问时同步一次
 3. HMAC 签名正确
 4. `expires` 未过期
 
@@ -297,7 +297,7 @@ signature = HMAC-SHA256(
 管理界面「强制下线」会递增服务端的 `token_version`。
 
 - NPM `auth_request` 模式：立即生效，因为每次都查 auth-server
-- 业务中间件模式：服务每 2 秒读取一次 `/api/auth/service/<slug>`，约 2 秒内生效
+- 业务中间件模式：服务每次访问时读取 `/api/auth/service/<slug>`，下次请求生效
 - `SERVICE_TOKEN_VERSION` 只作为 auth-server 暂时不可达时的回退值
 
 「轮换密钥」会同时更换 `SERVICE_SECRET` 和 Token 版本，旧 Token 立即失效；同样需要把新配置更新到业务服务。
