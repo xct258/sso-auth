@@ -18,6 +18,16 @@ const editingDomain = ref(null)
 const savingDomain = ref(false)
 const secretInfo = ref(null)
 const configInfo = ref(null)
+const toast = ref(null)
+let toastTimer = 0
+
+function notify(message, type = 'success') {
+  toast.value = { message, type }
+  window.clearTimeout(toastTimer)
+  toastTimer = window.setTimeout(() => {
+    toast.value = null
+  }, 2400)
+}
 
 const serviceForm = reactive({
   domain_id: null,
@@ -290,9 +300,9 @@ async function saveDomain() {
 async function copy(text) {
   try {
     await navigator.clipboard.writeText(text)
-    notice.value = '已复制'
+    notify('已复制')
   } catch (_) {
-    notice.value = '复制失败，请手动选择复制'
+    notify('复制失败，请手动选择复制', 'error')
   }
 }
 
@@ -497,58 +507,66 @@ onMounted(load)
         <h2>{{ selectedDomain ? `${selectedDomain.name} 的服务` : '服务' }}</h2>
         <span class="admin-muted">{{ domainServices.length }} 个</span>
       </header>
-      <div class="table-wrap">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>服务</th>
-              <th>Cookie</th>
-              <th>会话</th>
-              <th>最近登录</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in domainServices" :key="item.id">
-              <td>
-                <strong>{{ item.name }}</strong>
-                <div class="admin-sub">{{ item.slug }} · {{ item.auth_mode === 'middleware' ? '代码' : 'NPM' }}<span v-if="item.basic_auth"> · Basic</span></div>
-              </td>
-              <td><code>{{ item.cookie_name }}</code></td>
-              <td>{{ item.session_days }} 天</td>
-              <td>{{ formatTime(item.last_login_at) }}</td>
-              <td>
-                <span :class="['pill', item.enabled ? 'ok' : 'off']">
-                  {{ item.enabled ? '启用' : '停用' }}
-                </span>
-              </td>
-              <td class="row-actions">
-                <button class="admin-btn ghost" type="button" @click="openEditService(item)">
-                  编辑
-                </button>
-                <button class="admin-btn ghost" type="button" @click="showConfig(item)">
-                  配置
-                </button>
-                <button class="admin-btn ghost" type="button" @click="viewPassword(item)">
-                  查看密码
-                </button>
-                <button class="admin-btn ghost" type="button" @click="resetPassword(item)">
-                  重置密码
-                </button>
-                <button class="admin-btn ghost" type="button" @click="revoke(item)">
-                  下线
-                </button>
-                <button class="admin-btn danger" type="button" @click="removeService(item)">
-                  删除
-                </button>
-              </td>
-            </tr>
-            <tr v-if="!loading && !domainServices.length">
-              <td colspan="6" class="admin-empty">这个域名下还没有服务</td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-if="loading" class="admin-empty">加载中…</div>
+      <div v-else-if="!domainServices.length" class="admin-empty">
+        这个域名下还没有服务
+      </div>
+      <div v-else class="service-grid">
+        <article
+          v-for="item in domainServices"
+          :key="item.id"
+          :class="['service-card', { disabled: !item.enabled }]"
+        >
+          <header class="service-card-head">
+            <div class="min-w-0">
+              <h3>{{ item.name }}</h3>
+              <p class="admin-sub">
+                {{ item.slug }} ·
+                {{ item.auth_mode === 'middleware' ? '代码' : 'NPM' }}
+                <span v-if="item.basic_auth"> · Basic</span>
+              </p>
+            </div>
+            <span :class="['pill', item.enabled ? 'ok' : 'off']">
+              {{ item.enabled ? '启用' : '停用' }}
+            </span>
+          </header>
+
+          <div class="service-meta">
+            <div>
+              <span>Cookie</span>
+              <code>{{ item.cookie_name }}</code>
+            </div>
+            <div>
+              <span>会话</span>
+              <strong>{{ item.session_days }} 天</strong>
+            </div>
+            <div>
+              <span>最近登录</span>
+              <strong>{{ formatTime(item.last_login_at) }}</strong>
+            </div>
+          </div>
+
+          <footer class="service-actions">
+            <button class="admin-btn ghost" type="button" @click="openEditService(item)">
+              编辑
+            </button>
+            <button class="admin-btn ghost" type="button" @click="showConfig(item)">
+              配置
+            </button>
+            <button class="admin-btn ghost" type="button" @click="viewPassword(item)">
+              查看密码
+            </button>
+            <button class="admin-btn ghost" type="button" @click="resetPassword(item)">
+              重置密码
+            </button>
+            <button class="admin-btn ghost" type="button" @click="revoke(item)">
+              下线
+            </button>
+            <button class="admin-btn danger" type="button" @click="removeService(item)">
+              删除
+            </button>
+          </footer>
+        </article>
       </div>
     </section>
 
@@ -612,5 +630,7 @@ onMounted(load)
         </template>
       </div>
     </div>
+
+    <div v-if="toast" :class="['admin-toast', toast.type]">{{ toast.message }}</div>
   </div>
 </template>

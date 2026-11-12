@@ -87,7 +87,11 @@ async function logout() {
     </aside>
 
     <main class="admin-main">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <transition name="admin-page" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </main>
   </div>
 </template>
