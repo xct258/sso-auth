@@ -50,6 +50,7 @@ AUTH_ENABLED=true
 SERVICE_ID=taskops
 SERVICE_SECRET=...
 SERVICE_TOKEN_VERSION=1
+SSO_STATE_URL=http://127.0.0.1:8290/api/auth/service
 SSO_LOGIN_URL=https://auth.xct258.top/login
 SSO_COOKIE_NAME=sso_taskops
 SSO_COOKIE_DOMAIN=.xct258.top
@@ -130,7 +131,7 @@ signature = HMAC-SHA256(
 校验：
 
 1. `service_id` 等于自己的 `SERVICE_ID`
-2. `token_version` 等于自己的 `SERVICE_TOKEN_VERSION`
+2. `token_version` 等于 auth-server 当前值（每 2 秒读取一次 `/api/auth/service/<slug>`）
 3. HMAC 签名正确
 4. 未过期
 
@@ -183,7 +184,8 @@ curl -i -b /tmp/sso.jar http://127.0.0.1:9000/api/private
 
 - 每个服务使用不同的 `SSO_COOKIE_NAME`，否则会互相覆盖。
 - `SERVICE_SECRET` 不能混用；不同服务必须不同。
-- 管理界面「强制下线」或「轮换密钥」后，需要把新的 `SERVICE_TOKEN_VERSION` / `SERVICE_SECRET` 更新到服务并重启。
-- NPM `auth_request` 模式不需要更新业务环境变量，强制下线立即生效。
+- 管理界面「强制下线」后，业务服务约 2 秒内失效，不需要改环境变量。
+- 「轮换密钥」会更换 `SERVICE_SECRET`，仍需要更新服务环境变量并重启。
+- NPM `auth_request` 模式强制下线立即生效。
 - 生产必须 HTTPS，并让 NPM 传 `X-Forwarded-Proto: https`。
 - Cookie 是 HttpOnly，前端读不到，登录状态只看 `/api/auth/status`。

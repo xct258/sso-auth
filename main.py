@@ -748,6 +748,20 @@ def auth_logout(request: Request, service: str = ""):
     return response
 
 
+@app.get("/api/auth/service/{slug}")
+def service_state(slug: str):
+    """给业务服务读取当前 Token 版本；用于强制下线即时生效。"""
+    svc = get_service(slug)
+    if not svc:
+        raise HTTPException(status_code=404, detail="服务不存在")
+    return {
+        "service": svc["slug"],
+        "enabled": bool(svc["enabled"] and svc["domain_enabled"]),
+        "token_version": svc["token_version"],
+        "updated_at": svc["updated_at"],
+    }
+
+
 @app.get("/api/auth/verify")
 def auth_verify(request: Request, service: str = ""):
     svc = require_service_for_request(request, service)

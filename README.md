@@ -127,6 +127,7 @@ AUTH_ENABLED=true
 SERVICE_ID=taskops
 SERVICE_SECRET=该服务自己的密钥
 SERVICE_TOKEN_VERSION=1
+SSO_STATE_URL=http://127.0.0.1:8290/api/auth/service
 SSO_LOGIN_URL=https://auth.xct258.top/login
 SSO_COOKIE_NAME=sso_taskops
 SSO_COOKIE_DOMAIN=.xct258.top
@@ -285,7 +286,7 @@ signature = HMAC-SHA256(
 服务端校验：
 
 1. `service_id` 必须等于自己的 `SERVICE_ID`
-2. `token_version` 必须等于自己的 `SERVICE_TOKEN_VERSION`
+2. `token_version` 必须等于 auth-server 当前值（`/api/auth/service/<slug>`），约 2 秒同步一次
 3. HMAC 签名正确
 4. `expires` 未过期
 
@@ -296,7 +297,8 @@ signature = HMAC-SHA256(
 管理界面「强制下线」会递增服务端的 `token_version`。
 
 - NPM `auth_request` 模式：立即生效，因为每次都查 auth-server
-- 业务中间件模式：需要把新的 `SERVICE_TOKEN_VERSION` 更新到服务环境变量并重启
+- 业务中间件模式：服务每 2 秒读取一次 `/api/auth/service/<slug>`，约 2 秒内生效
+- `SERVICE_TOKEN_VERSION` 只作为 auth-server 暂时不可达时的回退值
 
 「轮换密钥」会同时更换 `SERVICE_SECRET` 和 Token 版本，旧 Token 立即失效；同样需要把新配置更新到业务服务。
 
