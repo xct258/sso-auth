@@ -12,8 +12,8 @@
 当前默认域名：
 
 ```text
-auth.o1-1.xct258.top
-Cookie Domain: .o1-1.xct258.top
+auth.xct258.top
+Cookie Domain: .xct258.top
 ```
 
 后续可以增加 `auth.xct258.top` 等域名；域名、服务都在管理界面维护。
@@ -21,7 +21,7 @@ Cookie Domain: .o1-1.xct258.top
 ## 架构
 
 ```text
-                       auth.o1-1.xct258.top
+                       auth.xct258.top
                        ├── /login        服务登录页
                        ├── /admin        管理控制台
                        ├── /api/auth/*   服务登录 / 验签
@@ -37,7 +37,7 @@ Cookie Domain: .o1-1.xct258.top
 同一个父域下：
 
 ```text
-Cookie Domain: .o1-1.xct258.top
+Cookie Domain: .xct258.top
 Cookie 名:     sso_push / sso_taskops / sso_opencode
 ```
 
@@ -81,7 +81,7 @@ curl http://127.0.0.1:8290/api/health
 登录管理后台：
 
 ```text
-https://auth.o1-1.xct258.top/admin
+https://auth.xct258.top/admin
 ```
 
 直接用 Python 跑（开发调试）：
@@ -105,7 +105,7 @@ uvicorn main:app --host 0.0.0.0 --port 8290
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
 | `AUTH_DOMAIN_NAME` | `o1-1` | 初始域名名称 |
-| `AUTH_HOST` | `auth.o1-1.xct258.top` | 初始登录主机名 |
+| `AUTH_HOST` | `auth.xct258.top` | 初始登录主机名 |
 | `AUTH_COOKIE_DOMAIN` | `.o1-1.xct258.top` | 初始 Cookie 父域；本地调试可留空 |
 | `AUTH_ALLOWED_SUFFIX` | 同 Cookie 父域 | 允许 `next` 跳转的后缀 |
 | `AUTH_SITE_NAME` | `统一登录` | 登录页标题 |
@@ -127,17 +127,17 @@ AUTH_ENABLED=true
 SERVICE_ID=taskops
 SERVICE_SECRET=该服务自己的密钥
 SERVICE_TOKEN_VERSION=1
-SSO_LOGIN_URL=https://auth.o1-1.xct258.top/login
+SSO_LOGIN_URL=https://auth.xct258.top/login
 SSO_COOKIE_NAME=sso_taskops
-SSO_COOKIE_DOMAIN=.o1-1.xct258.top
-SSO_ALLOWED_REDIRECT_SUFFIX=.o1-1.xct258.top
+SSO_COOKIE_DOMAIN=.xct258.top
+SSO_ALLOWED_REDIRECT_SUFFIX=.xct258.top
 ```
 
 业务服务不需要保存登录密码，密码哈希只存在 auth-server 数据库里。
 
 ## 管理控制台
 
-登录 `https://auth.o1-1.xct258.top/admin` 只需要**管理密码**，不需要输入用户名。管理员用户名仅用于初始化数据库。
+登录 `https://auth.xct258.top/admin` 只需要**管理密码**，不需要输入用户名。管理员用户名仅用于初始化数据库。
 
 登录后可以：
 
@@ -259,7 +259,7 @@ location / {
 }
 
 location @sso_login {
-    return 302 https://auth.o1-1.xct258.top/login?service=taskops&next=https://$host$request_uri;
+    return 302 https://auth.xct258.top/login?service=taskops&next=https://$host$request_uri;
 }
 ```
 
@@ -303,7 +303,7 @@ signature = HMAC-SHA256(
 ```text
 访问 TaskOps
   ↓ 未登录
-302 → https://auth.o1-1.xct258.top/login?service=taskops&next=...
+302 → https://auth.xct258.top/login?service=taskops&next=...
   ↓ 输入 TaskOps 自己的密码
 校验 taskops 的 password_hash
   ↓ 成功
@@ -321,8 +321,8 @@ TaskOps 用 SERVICE_SECRET 验签
 当前先用：
 
 ```text
-auth.o1-1.xct258.top
-Cookie Domain: .o1-1.xct258.top
+auth.xct258.top
+Cookie Domain: .xct258.top
 ```
 
 以后切换时不需要改代码：
@@ -368,22 +368,22 @@ SSO_COOKIE_DOMAIN=.xct258.top
 curl http://127.0.0.1:8290/api/health
 
 # 管理后台
-curl -I https://auth.o1-1.xct258.top/admin
+curl -I https://auth.xct258.top/admin
 
 # 服务登录页
-curl -I 'https://auth.o1-1.xct258.top/login?service=taskops'
+curl -I 'https://auth.xct258.top/login?service=taskops'
 
 # 未登录接口
-curl -i 'https://auth.o1-1.xct258.top/api/auth/verify?service=taskops'   # 401
+curl -i 'https://auth.xct258.top/api/auth/verify?service=taskops'   # 401
 
 # 登录后
 curl -i -c /tmp/sso.jar \
   -H 'Content-Type: application/json' \
   -d '{"password":"服务密码"}' \
-  'https://auth.o1-1.xct258.top/api/auth/login?service=taskops'
+  'https://auth.xct258.top/api/auth/login?service=taskops'
 
 curl -i -b /tmp/sso.jar \
-  'https://auth.o1-1.xct258.top/api/auth/verify?service=taskops'        # 204
+  'https://auth.xct258.top/api/auth/verify?service=taskops'        # 204
 ```
 
 ## 从旧版本迁移

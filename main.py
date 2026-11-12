@@ -26,10 +26,10 @@ auth-server，但登录态互不影响。
     POST /api/admin/change-password
 
 环境变量：
-    AUTH_HOST                    初始登录中心主机名，默认 auth.o1-1.xct258.top
-    AUTH_COOKIE_DOMAIN           初始 Cookie 父域，默认 .o1-1.xct258.top
+    AUTH_HOST                    初始登录中心主机名，默认 auth.xct258.top
+    AUTH_COOKIE_DOMAIN           初始 Cookie 父域，默认 .xct258.top
     AUTH_ALLOWED_SUFFIX          初始允许跳转后缀，默认同 Cookie 父域
-    AUTH_DOMAIN_NAME             初始域名名称，默认 o1-1
+    AUTH_DOMAIN_NAME             初始域名名称，默认 xct258
     AUTH_SITE_NAME               登录页标题，默认 统一登录
     AUTH_WALLPAPER_URL           壁纸地址
     ADMIN_USERNAME               初始管理员用户名，默认 admin
@@ -303,9 +303,9 @@ def init_db() -> None:
         conn.executescript(SCHEMA)
 
         if not conn.execute("SELECT 1 FROM domains LIMIT 1").fetchone():
-            domain_name = os.environ.get("AUTH_DOMAIN_NAME", "o1-1")
-            auth_host = os.environ.get("AUTH_HOST", "auth.o1-1.xct258.top")
-            cookie_domain = os.environ.get("AUTH_COOKIE_DOMAIN", ".o1-1.xct258.top")
+            domain_name = os.environ.get("AUTH_DOMAIN_NAME", "xct258")
+            auth_host = os.environ.get("AUTH_HOST", "auth.xct258.top")
+            cookie_domain = os.environ.get("AUTH_COOKIE_DOMAIN", ".xct258.top")
             allowed_suffix = (
                 os.environ.get("AUTH_ALLOWED_SUFFIX", "").strip() or cookie_domain
             )

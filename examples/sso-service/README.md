@@ -14,7 +14,7 @@ examples/sso-service/
 打开：
 
 ```text
-https://auth.o1-1.xct258.top/admin
+https://auth.xct258.top/admin
 ```
 
 进入「服务管理」→「添加服务」，填写：
@@ -50,9 +50,9 @@ AUTH_ENABLED=true
 SERVICE_ID=taskops
 SERVICE_SECRET=...
 SERVICE_TOKEN_VERSION=1
-SSO_LOGIN_URL=https://auth.o1-1.xct258.top/login
+SSO_LOGIN_URL=https://auth.xct258.top/login
 SSO_COOKIE_NAME=sso_taskops
-SSO_COOKIE_DOMAIN=.o1-1.xct258.top
+SSO_COOKIE_DOMAIN=.xct258.top
 ```
 
 新服务不需要 `APP_PASSWORD`。
@@ -153,7 +153,7 @@ location / {
 }
 
 location @sso_login {
-    return 302 https://auth.o1-1.xct258.top/login?service=taskops&next=https://$host$request_uri;
+    return 302 https://auth.xct258.top/login?service=taskops&next=https://$host$request_uri;
 }
 ```
 
