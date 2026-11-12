@@ -259,6 +259,8 @@ CREATE TABLE IF NOT EXISTS services (
     public_url TEXT NOT NULL DEFAULT '',
     password_hash TEXT NOT NULL,
     password_enc TEXT NOT NULL DEFAULT '',
+    basic_username TEXT NOT NULL DEFAULT '',
+    basic_password_enc TEXT NOT NULL DEFAULT '',
     secret_salt TEXT NOT NULL,
     cookie_name TEXT NOT NULL,
     session_days INTEGER NOT NULL DEFAULT 7,
@@ -326,6 +328,14 @@ def init_db() -> None:
         if "password_enc" not in columns:
             conn.execute(
                 "ALTER TABLE services ADD COLUMN password_enc TEXT NOT NULL DEFAULT ''"
+            )
+        if "basic_username" not in columns:
+            conn.execute(
+                "ALTER TABLE services ADD COLUMN basic_username TEXT NOT NULL DEFAULT ''"
+            )
+        if "basic_password_enc" not in columns:
+            conn.execute(
+                "ALTER TABLE services ADD COLUMN basic_password_enc TEXT NOT NULL DEFAULT ''"
             )
 
         if not conn.execute("SELECT 1 FROM domains LIMIT 1").fetchone():
@@ -1094,6 +1104,9 @@ class ServiceCreatePayload(BaseModel):
     slug: str = ""
     public_url: str = ""
     password: str = ""
+    basic_auth_enabled: bool = False
+    basic_username: str = ""
+    basic_password: str = ""
     session_days: int = Field(default=DEFAULT_SESSION_DAYS, ge=1, le=365)
     enabled: bool = True
     notes: str = ""
@@ -1102,6 +1115,9 @@ class ServiceCreatePayload(BaseModel):
 class ServiceUpdatePayload(BaseModel):
     name: str = ""
     public_url: str = ""
+    basic_auth_enabled: bool = False
+    basic_username: str = ""
+    basic_password: str = ""
     session_days: int = Field(default=DEFAULT_SESSION_DAYS, ge=1, le=365)
     enabled: bool = True
     notes: str = ""
@@ -1128,12 +1144,14 @@ def service_row(service_id: int) -> dict[str, Any]:
 
 
 def public_service(row: dict[str, Any]) -> dict[str, Any]:
-    """管理接口不返回密码哈希和密钥盐。"""
-    return {
+    """管理接口不返回密码哈希、密钥盐和 Basic 密码密文。"""
+    result = {
         key: value
         for key, value in row.items()
-        if key not in {"password_hash", "password_enc", "secret_salt"}
+        if key not in {"password_hash", "password_enc", "basic_password_enc", "secret_salt"}
     }
+    result["basic_auth"] = bool(row.get("basic_password_enc"))
+    return result
 
 
 @app.get("/api/admin/services")
@@ -1168,6 +1186,14 @@ def create_service(payload: ServiceCreatePayload, request: Request):
             raise HTTPException(status_code=400, detail="域名不存在")
 
     password = payload.password or secrets.token_urlsafe(12)
+    basic_user = payload.basic_username.strip()
+    basic_enc = ""
+    if payload.basic_auth_enabled:
+        if not basic_user or not payload.basic_password:
+            raise HTTPException(
+                status_code=400, detail="启用 Basic Auth 时必须填写用户名和密码"
+            )
+        basic_enc = encrypt_password(payload.basic_password)
     secret, salt = new_service_secret(slug)
     cookie_name = f"sso_{slug.replace('-', '_')}"
     now = now_iso()
@@ -1177,9 +1203,9 @@ def create_service(payload: ServiceCreatePayload, request: Request):
                 """
                 INSERT INTO services
                   (domain_id, name, slug, public_url, password_hash, password_enc,
-                   secret_salt, cookie_name, session_days, token_version, enabled,
-                   notes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+                   basic_username, basic_password_enc, secret_salt, cookie_name,
+                   session_days, token_version, enabled, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
                 """,
                 (
                     payload.domain_id,
@@ -1188,6 +1214,8 @@ def create_service(payload: ServiceCreatePayload, request: Request):
                     payload.public_url.strip(),
                     hash_password(password),
                     encrypt_password(password),
+                    basic_user,
+                    basic_enc,
                     salt,
                     cookie_name,
                     payload.session_days,
@@ -1221,18 +1249,32 @@ def update_service(
     service_id: int, payload: ServiceUpdatePayload, request: Request
 ):
     admin = require_admin(request, csrf=True)
-    service_row(service_id)
+    current = service_row(service_id)
+    basic_user = payload.basic_username.strip()
+    basic_enc = ""
+    if payload.basic_auth_enabled:
+        if not basic_user:
+            raise HTTPException(status_code=400, detail="Basic Auth 用户名必填")
+        if payload.basic_password:
+            basic_enc = encrypt_password(payload.basic_password)
+        else:
+            basic_enc = current["basic_password_enc"]
+            if not basic_enc:
+                raise HTTPException(status_code=400, detail="Basic Auth 密码必填")
     with db_conn() as conn:
         conn.execute(
             """
             UPDATE services
-            SET name = ?, public_url = ?, session_days = ?, enabled = ?,
+            SET name = ?, public_url = ?, basic_username = ?,
+                basic_password_enc = ?, session_days = ?, enabled = ?,
                 notes = ?, updated_at = ?
             WHERE id = ?
             """,
             (
                 payload.name.strip(),
                 payload.public_url.strip(),
+                basic_user,
+                basic_enc,
                 payload.session_days,
                 1 if payload.enabled else 0,
                 payload.notes.strip(),
@@ -1358,6 +1400,7 @@ def service_config(service_id: int, request: Request):
     suffix = service["allowed_suffix"] or service["cookie_domain"]
     env = "\n".join(
         [
+            "# 集中验签只用 SSO_VERIFY_URL；本地验签才需要 SERVICE_SECRET / SERVICE_TOKEN_VERSION",
             "AUTH_ENABLED=true",
             f"SERVICE_ID={service['slug']}",
             f"SERVICE_SECRET={secret}",
@@ -1366,9 +1409,18 @@ def service_config(service_id: int, request: Request):
             f"SSO_COOKIE_NAME={service['cookie_name']}",
             f"SSO_COOKIE_DOMAIN={service['cookie_domain']}",
             f"SSO_ALLOWED_REDIRECT_SUFFIX={suffix}",
+            "SSO_VERIFY_URL=http://127.0.0.1:8290/api/auth/verify",
             "",
         ]
     )
+    basic_header = ""
+    if service["basic_username"] and service["basic_password_enc"]:
+        basic_password = decrypt_password(service["basic_password_enc"])
+        if basic_password:
+            token = base64.b64encode(
+                f"{service['basic_username']}:{basic_password}".encode("utf-8")
+            ).decode("ascii")
+            basic_header = f'    proxy_set_header Authorization "Basic {token}";\n'
     nginx = f"""location = /_sso_auth {{
     internal;
     proxy_pass http://127.0.0.1:8290/api/auth/verify?service={service['slug']};
@@ -1379,6 +1431,11 @@ def service_config(service_id: int, request: Request):
 location / {{
     auth_request /_sso_auth;
     error_page 401 = @sso_login;
+{basic_header}    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $http_connection;
+    proxy_http_version 1.1;
+    proxy_buffering off;
+    proxy_read_timeout 3600s;
     include conf.d/include/proxy.conf;
 }}
 

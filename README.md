@@ -166,6 +166,7 @@ SSO_ALLOWED_REDIRECT_SUFFIX=.xct258.top
 - 强制下线（递增 Token 版本）
 - 查看 / 复制 `.env` 和 NPM 配置
 - 查看当前密码
+- 可选「上游使用 Basic Auth」：填写用户名/密码后，生成的 NPM 配置会自动注入 `Authorization: Basic ...`
 - 查看最近登录时间
 
 服务密码和密钥都可以在管理后台重新查看；密钥在「接入配置」里。
@@ -390,6 +391,7 @@ SSO_COOKIE_DOMAIN=.xct258.top
 - 管理后台使用独立的管理员账号和 host-only Cookie，不设置父域
 - 管理接口使用 CSRF Token
 - 服务密码使用 scrypt 哈希校验，同时用主密钥加密保存，供管理员查看
+- 上游 Basic Auth 密码同样用主密钥加密保存，不会出现在服务列表接口里
 - 服务密钥由主密钥 + 服务 ID + 随机盐派生，不直接存明文
 - 登录接口按服务 + IP 限流：5 次失败锁 60 秒
 - `next` 只允许跳到该域名配置的后缀

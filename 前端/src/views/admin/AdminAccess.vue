@@ -25,6 +25,9 @@ const serviceForm = reactive({
   slug: '',
   public_url: '',
   password: '',
+  basic_auth_enabled: false,
+  basic_username: '',
+  basic_password: '',
   session_days: 7,
   enabled: true,
   notes: '',
@@ -61,6 +64,9 @@ function resetServiceForm() {
     slug: '',
     public_url: '',
     password: '',
+    basic_auth_enabled: false,
+    basic_username: '',
+    basic_password: '',
     session_days: 7,
     enabled: true,
     notes: '',
@@ -118,6 +124,9 @@ function openEditService(item) {
     slug: item.slug,
     public_url: item.public_url,
     password: '',
+    basic_auth_enabled: !!item.basic_auth,
+    basic_username: item.basic_username || '',
+    basic_password: '',
     session_days: item.session_days,
     enabled: !!item.enabled,
     notes: item.notes,
@@ -140,6 +149,9 @@ async function saveService() {
         body: JSON.stringify({
           name: serviceForm.name,
           public_url: serviceForm.public_url,
+          basic_auth_enabled: serviceForm.basic_auth_enabled,
+          basic_username: serviceForm.basic_username,
+          basic_password: serviceForm.basic_password,
           session_days: Number(serviceForm.session_days),
           enabled: serviceForm.enabled,
           notes: serviceForm.notes,
@@ -470,6 +482,29 @@ onMounted(load)
             autocomplete="new-password"
           />
         </label>
+        <label class="checkbox wide">
+          <input v-model="serviceForm.basic_auth_enabled" type="checkbox" />
+          上游使用 Basic Auth
+        </label>
+        <template v-if="serviceForm.basic_auth_enabled">
+          <label>
+            Basic 用户名
+            <input
+              v-model="serviceForm.basic_username"
+              placeholder="xct258"
+              autocomplete="off"
+            />
+          </label>
+          <label>
+            Basic 密码
+            <input
+              v-model="serviceForm.basic_password"
+              type="password"
+              :placeholder="editingService ? '留空则不修改' : '上游 Basic 密码'"
+              autocomplete="new-password"
+            />
+          </label>
+        </template>
         <label>
           会话天数
           <input v-model.number="serviceForm.session_days" type="number" min="1" max="365" />
@@ -511,7 +546,7 @@ onMounted(load)
             <tr v-for="item in domainServices" :key="item.id">
               <td>
                 <strong>{{ item.name }}</strong>
-                <div class="admin-sub">{{ item.slug }}</div>
+                <div class="admin-sub">{{ item.slug }}<span v-if="item.basic_auth"> · Basic</span></div>
               </td>
               <td><code>{{ item.cookie_name }}</code></td>
               <td>{{ item.session_days }} 天</td>
