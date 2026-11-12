@@ -25,6 +25,7 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 24px;
   background: #0b1120;
   color: var(--text);
@@ -71,6 +72,18 @@ body {
   justify-content: center;
   width: 100%;
   min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* 登录页使用动态视口高度，避免移动端浏览器地址栏导致卡片偏下 */
+body:not(.admin-mode) {
+  height: 100vh;
+  height: 100dvh;
+}
+
+body:not(.admin-mode) #app {
+  height: 100%;
+  min-height: 100%;
 }
 
 .wrap {

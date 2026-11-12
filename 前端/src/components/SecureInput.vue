@@ -5,6 +5,7 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   visible: { type: Boolean, default: false },
   autofocus: { type: Boolean, default: false },
+  placeholder: { type: String, default: '访问密码' },
 })
 
 const emit = defineEmits([
@@ -358,7 +359,7 @@ onUnmounted(() => {
       @focus="displayFocused = true"
       @blur="onDisplayBlur"
     >
-      <span v-if="!modelValue && !showCaret" class="placeholder">访问密码</span>
+      <span v-if="!modelValue && !showCaret" class="placeholder">{{ placeholder }}</span>
       <span v-else class="code" ref="codeRef">
         <template v-for="(char, index) in displayChars" :key="index">
           <span

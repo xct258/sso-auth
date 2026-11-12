@@ -216,6 +216,7 @@ onMounted(boot)
         v-model="password"
         :visible="showPassword"
         :autofocus="isFinePointer"
+        placeholder="服务密码"
         @change="error = ''"
         @paste-error="onPasteError"
         @toggle-visibility="showPassword = !showPassword"
