@@ -587,12 +587,11 @@ onMounted(load)
 
           <div class="service-meta">
             <div>
-              <span>Cookie</span>
-              <code>{{ item.cookie_name }}</code>
-            </div>
-            <div>
-              <span>会话</span>
-              <strong>{{ item.session_days }} 天</strong>
+              <span>Cookie / 会话</span>
+              <div class="service-cookie-line">
+                <code>{{ item.cookie_name }}</code>
+                <em>{{ item.session_days }} 天</em>
+              </div>
             </div>
             <div>
               <span>最近登录</span>

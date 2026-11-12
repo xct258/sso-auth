@@ -1271,3 +1271,23 @@ body.admin-mode #app {
     margin-left: 0;
   }
 }
+
+.service-cookie-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.service-cookie-line code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service-cookie-line em {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
