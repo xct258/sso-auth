@@ -1291,3 +1291,25 @@ body.admin-mode #app {
   font-size: 11px;
   font-style: normal;
 }
+
+/* 弹窗淡入淡出 */
+.admin-modal-enter-active,
+.admin-modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.admin-modal-enter-from,
+.admin-modal-leave-to {
+  opacity: 0;
+}
+
+.admin-modal-enter-active .admin-modal,
+.admin-modal-leave-active .admin-modal {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.admin-modal-enter-from .admin-modal,
+.admin-modal-leave-to .admin-modal {
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+}

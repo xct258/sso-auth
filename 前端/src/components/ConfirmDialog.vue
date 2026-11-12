@@ -30,7 +30,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="admin-modal-backdrop" @click.self="close">
+    <Transition name="admin-modal">
+      <div v-if="modelValue" class="admin-modal-backdrop" @click.self="close">
       <div class="admin-modal confirm-modal" role="dialog" aria-modal="true">
         <h2>{{ title }}</h2>
         <p class="admin-muted">{{ message }}</p>
@@ -47,6 +48,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </Transition>
   </Teleport>
 </template>

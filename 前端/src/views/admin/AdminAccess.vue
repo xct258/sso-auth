@@ -395,6 +395,7 @@ onMounted(load)
       </div>
     </section>
 
+    <Transition name="admin-modal">
     <div
       v-if="showDomainForm"
       class="admin-modal-backdrop"
@@ -445,7 +446,9 @@ onMounted(load)
       </form>
       </div>
     </div>
+    </Transition>
 
+    <Transition name="admin-modal">
     <div
       v-if="showServiceForm"
       class="admin-modal-backdrop"
@@ -546,6 +549,7 @@ onMounted(load)
       </form>
       </div>
     </div>
+    </Transition>
 
     <section class="admin-card">
       <header class="admin-card-head">
@@ -623,6 +627,7 @@ onMounted(load)
       </div>
     </section>
 
+    <Transition name="admin-modal">
     <div v-if="secretInfo" class="admin-modal-backdrop" @click.self="secretInfo = null">
       <div class="admin-modal">
         <header class="admin-card-head">
@@ -650,7 +655,9 @@ onMounted(load)
         </label>
       </div>
     </div>
+    </Transition>
 
+    <Transition name="admin-modal">
     <div v-if="configInfo" class="admin-modal-backdrop" @click.self="configInfo = null">
       <div class="admin-modal wide">
         <header class="admin-card-head">
@@ -683,6 +690,7 @@ onMounted(load)
         </template>
       </div>
     </div>
+    </Transition>
 
     <ConfirmDialog
       v-model="confirmOpen"
