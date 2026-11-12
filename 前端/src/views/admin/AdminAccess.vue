@@ -362,7 +362,6 @@ onMounted(load)
       </div>
       <div class="access-domain-meta">
         <span>服务 {{ selectedDomain.service_count }}</span>
-        <span>允许跳转 {{ selectedDomain.allowed_suffix || selectedDomain.cookie_domain }}</span>
         <span :class="['pill', selectedDomain.enabled ? 'ok' : 'off']">
           {{ selectedDomain.enabled ? '启用' : '停用' }}
         </span>
