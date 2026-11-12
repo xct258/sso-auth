@@ -1,0 +1,342 @@
+:root {
+  --wp-accent: #6366f1;
+  --wp-accent-rgb: 99, 102, 241;
+  --accent: #6366f1;
+  --accent-2: #38bdf8;
+  --card: rgba(9, 14, 28, 0.8);
+  --line: rgba(255, 255, 255, 0.12);
+  --text: #e6ecf5;
+  --muted: #a8b3c7;
+  --danger: #fda4af;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+  background: #0b1120;
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* 清晰壁纸 */
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.bg img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bg.loaded {
+  opacity: 1;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.wrap {
+  width: 100%;
+  max-width: 420px;
+  transition: padding-bottom 0.2s ease-out;
+}
+
+/* 卡片 */
+.card {
+  position: relative;
+  overflow: hidden;
+  padding: 34px 30px 28px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 22px;
+  background: var(--card);
+  backdrop-filter: blur(24px) saturate(1.15);
+  -webkit-backdrop-filter: blur(24px) saturate(1.15);
+  box-shadow:
+    0 32px 90px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(99, 102, 241, 0.06),
+    0 20px 60px rgba(56, 189, 248, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(199, 210, 254, 0.75), transparent);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-bottom: 24px;
+}
+
+.logo {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow:
+    0 10px 30px rgba(99, 102, 241, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.logo svg { width: 24px; height: 24px; }
+
+.brand-text h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.brand-text p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+
+.field { position: relative; }
+
+input[type="password"],
+input[type="text"] {
+  width: 100%;
+  height: 48px;
+  padding: 0 46px 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 13px;
+  outline: none;
+  background: rgba(2, 6, 23, 0.62);
+  color: var(--text);
+  /* 16px 避免 iOS 聚焦时自动放大页面 */
+  font-size: 16px;
+  letter-spacing: 0.1em;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+input::placeholder { color: #667085; letter-spacing: 0.12em; }
+
+/* 临时 text 聚焦时继续遮成圆点 */
+input.mask-text {
+  -webkit-text-security: disc;
+}
+
+input:focus {
+  border-color: rgba(129, 140, 248, 0.9);
+  background: rgba(2, 6, 23, 0.74);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.toggle {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.toggle:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.toggle svg { width: 19px; height: 19px; }
+
+.code-hint {
+  margin: 8px 2px 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.error {
+  min-height: 18px;
+  margin: 9px 2px 0;
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.submit {
+  position: relative;
+  width: 100%;
+  height: 48px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #6366f1, #4f46e5 58%, #0ea5e9 135%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: filter 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+  box-shadow:
+    0 14px 32px rgba(79, 70, 229, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.submit:hover:not(:disabled) {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow:
+    0 18px 38px rgba(79, 70, 229, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.submit:active:not(:disabled) { transform: translateY(0); }
+.submit:disabled { cursor: default; opacity: 0.75; }
+
+.spinner {
+  display: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.submit.loading span.label { display: none; }
+.submit.loading .spinner { display: block; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.foot {
+  margin: 18px 0 0;
+  color: rgba(168, 179, 199, 0.72);
+  font-size: 11px;
+  text-align: center;
+  letter-spacing: 0.03em;
+}
+
+/* 壁纸加载失败 */
+.error-card {
+  text-align: center;
+}
+
+.error-card h1 {
+  margin: 4px 0 8px;
+  font-size: 18px;
+}
+
+.error-card p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* 已登录 */
+.success {  position: relative;
+  overflow: hidden;
+  padding: 38px 30px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 22px;
+  background: var(--card);
+  backdrop-filter: blur(24px) saturate(1.15);
+  -webkit-backdrop-filter: blur(24px) saturate(1.15);
+  box-shadow:
+    0 32px 90px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  text-align: center;
+  animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.success::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(199, 210, 254, 0.75), transparent);
+}
+
+.check {
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+  font-size: 25px;
+}
+
+.success h1 { margin: 0 0 8px; font-size: 19px; }
+.success p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.success a { color: #a5b4fc; text-decoration: none; }
+.success a:hover { text-decoration: underline; }
+
+/* 加载页样式在 LoadingScreen.vue 内 */
+
+@media (max-width: 480px) {
+  body { padding: 16px; }
+  .card { padding: 28px 22px 22px; border-radius: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

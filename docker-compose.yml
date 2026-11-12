@@ -1,0 +1,27 @@
+services:
+  sso-auth:
+    container_name: sso-auth
+    image: xct258/sso-auth:latest
+    build: .
+    network_mode: host
+    restart: unless-stopped
+    init: true
+    environment:
+      # 访问密码：留空 = 不启用登录（不建议）
+      - APP_PASSWORD=${APP_PASSWORD:-}
+      # 会话签名密钥：必须与 push-server、TaskOps 的 APP_SECRET 完全一致
+      - APP_SECRET=${APP_SECRET:-}
+      - SSO_SESSION_DAYS=${SSO_SESSION_DAYS:-7}
+      # 跨子域 SSO 的关键：Cookie 写到父域
+      - SSO_COOKIE_DOMAIN=${SSO_COOKIE_DOMAIN:-}
+      - SSO_COOKIE_NAME=${SSO_COOKIE_NAME:-sso_session}
+      # 本服务对外地址，例如 https://auth.o1-1.xct258.top/login
+      - SSO_LOGIN_URL=${SSO_LOGIN_URL:-}
+      # 允许登录后跳转的域名后缀，防止开放重定向
+      - SSO_ALLOWED_REDIRECT_SUFFIX=${SSO_ALLOWED_REDIRECT_SUFFIX:-}
+      # 登录中心自己的主机名，防止 next 跳回自己形成循环
+      - SSO_PUBLIC_HOST=${SSO_PUBLIC_HOST:-}
+      - SSO_DEFAULT_REDIRECT=${SSO_DEFAULT_REDIRECT:-}
+      - SSO_SITE_NAME=${SSO_SITE_NAME:-统一登录}
+      - SSO_WALLPAPER_URL=${SSO_WALLPAPER_URL:-https://random-image.xct258.top/}
+      - UVICORN_PORT=${UVICORN_PORT:-8290}

@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+*.log
+
+# 构建产物与依赖由 Docker 构建阶段生成
+前端/node_modules/
+前端/dist/
+static/dist/

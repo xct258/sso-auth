@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# 本地环境变量（含密钥）
+.env
+.env.*
+!.env.example
+
+*.log
+*.pid
+
+# 前端依赖与构建产物（部署时由 Docker 构建）
+前端/node_modules/
+static/dist/
