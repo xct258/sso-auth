@@ -11,6 +11,7 @@ import {
 
 const router = useRouter()
 const username = ref('')
+const booting = ref(!wallpaperReady.value)
 
 onMounted(async () => {
   const [status, config] = await Promise.all([
@@ -20,7 +21,17 @@ onMounted(async () => {
       .catch(() => ({})),
   ])
   username.value = status.username || ''
-  await loadWallpaper(config.wallpaper_url || '')
+
+  if (!wallpaperReady.value) {
+    await Promise.race([
+      loadWallpaper(config.wallpaper_url || ''),
+      new Promise((resolve) => setTimeout(resolve, 4000)),
+    ])
+    booting.value = false
+  } else {
+    // 登录页已经加载过同一张壁纸，直接复用。
+    loadWallpaper(config.wallpaper_url || '')
+  }
 })
 
 async function logout() {
@@ -34,7 +45,12 @@ async function logout() {
     <img v-if="wallpaperSrc" :src="wallpaperSrc" alt="" />
   </div>
 
-  <div class="admin-shell">
+  <div v-if="booting" class="admin-boot">
+    <span class="admin-boot-spinner" aria-hidden="true"></span>
+    <p>正在加载背景…</p>
+  </div>
+
+  <div v-else class="admin-shell">
     <aside class="admin-sidebar">
       <div class="admin-brand">
         <span class="admin-brand-mark">S</span>
