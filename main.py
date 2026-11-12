@@ -744,7 +744,6 @@ class AdminLoginPayload(BaseModel):
     username: str = ""
     password: str = ""
 
-
 def admin_token(user: dict[str, Any]) -> str:
     expires = int(time.time()) + ADMIN_SESSION_HOURS * 3600
     payload = f"v1.{user['id']}.{expires}"
@@ -807,19 +806,29 @@ def admin_login(payload: AdminLoginPayload, request: Request):
     key = f"admin:{client_ip(request)}"
     rate_check(key)
     with db_conn() as conn:
-        row = conn.execute(
-            "SELECT * FROM admin_users WHERE username = ? AND enabled = 1",
-            (payload.username.strip(),),
-        ).fetchone()
+        username = payload.username.strip()
+        if username:
+            row = conn.execute(
+                "SELECT * FROM admin_users WHERE username = ? AND enabled = 1",
+                (username,),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """
+                SELECT * FROM admin_users
+                WHERE enabled = 1 AND is_superadmin = 1
+                ORDER BY id LIMIT 1
+                """
+            ).fetchone()
         user = dict(row) if row else None
         if not user or not verify_password(payload.password, user["password_hash"]):
             rate_fail(key)
             audit(
-                actor=payload.username or "admin",
+                actor=username or "admin",
                 action="admin.login.failed",
                 request=request,
             )
-            raise HTTPException(status_code=401, detail="用户名或密码错误")
+            raise HTTPException(status_code=401, detail="管理密码错误")
         conn.execute(
             "UPDATE admin_users SET last_login_at = ? WHERE id = ?",
             (now_iso(), user["id"]),

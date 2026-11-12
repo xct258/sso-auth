@@ -17,12 +17,12 @@ export async function adminStatus() {
   return res.json()
 }
 
-export async function adminLogin(username, password) {
+export async function adminLogin(password) {
   const res = await fetch('/api/admin/login', {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ password }),
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {

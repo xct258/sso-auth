@@ -137,7 +137,9 @@ SSO_ALLOWED_REDIRECT_SUFFIX=.o1-1.xct258.top
 
 ## 管理控制台
 
-登录 `https://auth.o1-1.xct258.top/admin` 后可以：
+登录 `https://auth.o1-1.xct258.top/admin` 只需要**管理密码**，不需要输入用户名。管理员用户名仅用于初始化数据库。
+
+登录后可以：
 
 ### 域名管理
 

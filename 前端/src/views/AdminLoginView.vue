@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import LoadingScreen from '@/components/LoadingScreen.vue'
+import SecureInput from '@/components/SecureInput.vue'
 import {
   loadWallpaper,
   wallpaperFailed,
@@ -16,17 +17,27 @@ import { adminLogin } from '@/api/admin'
 const route = useRoute()
 const router = useRouter()
 
-const username = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+const showPassword = ref(false)
 const siteName = ref('统一登录')
 const wallpaperUrl = ref('')
+const keyboardHeight = ref(0)
+const isFinePointer = window.matchMedia?.('(pointer: fine)').matches ?? true
 
 const nextPath = computed(() => {
   const raw = String(route.query.next || '')
   return raw.startsWith('/admin') ? raw : '/admin'
 })
+
+function onKeyboardChange(event) {
+  keyboardHeight.value = event?.open ? event.height || 0 : 0
+}
+
+function onPasteError(message) {
+  error.value = message
+}
 
 async function fetchSite() {
   return fetch('/api/site', { credentials: 'same-origin', cache: 'no-store' })
@@ -51,13 +62,13 @@ async function retryWallpaper() {
 async function submit() {
   if (loading.value) return
   error.value = ''
-  if (!username.value || !password.value) {
-    error.value = '请输入用户名和密码'
+  if (!password.value) {
+    error.value = '请输入管理密码'
     return
   }
   loading.value = true
   try {
-    await adminLogin(username.value, password.value)
+    await adminLogin(password.value)
     await router.replace(nextPath.value)
   } catch (err) {
     error.value = err?.message || '登录失败'
@@ -84,7 +95,11 @@ onMounted(boot)
     @retry="retryWallpaper"
   />
 
-  <main v-else class="wrap">
+  <main
+    v-else
+    class="wrap"
+    :style="keyboardHeight ? { paddingBottom: `${keyboardHeight}px` } : undefined"
+  >
     <form class="card" novalidate @submit.prevent="submit">
       <div class="brand">
         <div class="logo" aria-hidden="true">
@@ -107,21 +122,17 @@ onMounted(boot)
         </div>
       </div>
 
-      <label>用户名</label>
-      <input
-        v-model="username"
-        class="field"
-        type="text"
-        autocomplete="username"
-        autofocus
-      />
-
       <label>管理密码</label>
-      <input
+
+      <SecureInput
         v-model="password"
-        class="field"
-        type="password"
-        autocomplete="current-password"
+        :visible="showPassword"
+        :autofocus="isFinePointer"
+        @change="error = ''"
+        @paste-error="onPasteError"
+        @toggle-visibility="showPassword = !showPassword"
+        @keyboard-change="onKeyboardChange"
+        @submit="submit"
       />
 
       <p class="error" role="alert" aria-live="polite">{{ error }}</p>
