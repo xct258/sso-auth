@@ -1148,6 +1148,24 @@ class PasswordResetPayload(BaseModel):
     password: str = ""
 
 
+def is_auth_host_url(raw: str) -> bool:
+    """公开地址不能指向登录中心自己的 auth 主机，避免登录循环。"""
+    raw = (raw or "").strip()
+    if not raw:
+        return False
+    candidate = raw if "://" in raw else f"https://{raw}"
+    parsed = urlsplit(candidate)
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False
+    with db_conn() as conn:
+        hosts = [
+            row["auth_host"].lower()
+            for row in conn.execute("SELECT auth_host FROM domains")
+        ]
+    return any(host == item or host.endswith("." + item) for item in hosts)
+
+
 def service_row(service_id: int) -> dict[str, Any]:
     with db_conn() as conn:
         row = conn.execute(
@@ -1208,6 +1226,11 @@ def create_service(payload: ServiceCreatePayload, request: Request):
         ).fetchone()
         if not domain:
             raise HTTPException(status_code=400, detail="域名不存在")
+
+    if is_auth_host_url(payload.public_url):
+        raise HTTPException(
+            status_code=400, detail="登录中心自己的域名不能作为服务公开地址"
+        )
 
     password = payload.password or secrets.token_urlsafe(12)
     basic_user = payload.basic_username.strip()
@@ -1275,6 +1298,10 @@ def update_service(
 ):
     admin = require_admin(request, csrf=True)
     current = service_row(service_id)
+    if is_auth_host_url(payload.public_url):
+        raise HTTPException(
+            status_code=400, detail="登录中心自己的域名不能作为服务公开地址"
+        )
     auth_mode = payload.auth_mode.strip().lower() or current["auth_mode"]
     if auth_mode not in ("npm", "middleware"):
         raise HTTPException(status_code=400, detail="请选择接入方式：NPM 或业务代码")

@@ -64,6 +64,27 @@ const selectedDomain = computed(
 const domainServices = computed(() =>
   services.value.filter((item) => item.domain_id === selectedDomainId.value),
 )
+function urlHost(value) {
+  const raw = (value || '').trim()
+  if (!raw) return ''
+  try {
+    const parsed = new URL(raw.includes('://') ? raw : `https://${raw}`)
+    return (parsed.hostname || '').toLowerCase()
+  } catch {
+    return ''
+  }
+}
+
+const authHostWarning = computed(() => {
+  const host = urlHost(serviceForm.public_url)
+  const authHost = (selectedDomain.value?.auth_host || '').toLowerCase()
+  if (!host || !authHost) return ''
+  if (host === authHost || host.endsWith(`.${authHost}`)) {
+    return `登录中心自身域名不能作为服务公开地址`
+  }
+  return ''
+})
+
 const serviceQuery = ref('')
 const filteredServices = computed(() => {
   const query = serviceQuery.value.trim().toLowerCase()
@@ -165,6 +186,10 @@ function openEditService(item) {
 async function saveService() {
   if (!serviceForm.auth_mode) {
     notify('请选择接入方式：NPM 或业务代码', 'error')
+    return
+  }
+  if (authHostWarning.value) {
+    notify(authHostWarning.value, 'error')
     return
   }
   savingService.value = true
@@ -462,7 +487,6 @@ onMounted(load)
                 v-model="serviceForm.auth_mode"
                 type="radio"
                 value="npm"
-                @change="error = ''"
               />
               <span class="auth-mode-copy">
                 <strong>NPM 反代</strong>
@@ -481,7 +505,6 @@ onMounted(load)
                 v-model="serviceForm.auth_mode"
                 type="radio"
                 value="middleware"
-                @change="error = ''"
               />
               <span class="auth-mode-copy">
                 <strong>业务代码</strong>
@@ -503,8 +526,10 @@ onMounted(load)
           公开地址
           <input
             v-model="serviceForm.public_url"
+            :class="{ invalid: authHostWarning }"
             placeholder="https://2-cfyx.o1-1.xct258.top"
           />
+          <small v-if="authHostWarning" class="field-hint">{{ authHostWarning }}</small>
         </label>
         <label v-if="!editingService">
           登录密码
