@@ -2,11 +2,11 @@
 
 一个登录中心 + 管理控制台，给同一父域下的多个服务使用。
 
-每个服务拥有**独立密码、独立 Cookie、独立签名密钥**：
+每个服务拥有**独立密码、独立 Cookie**；签名密钥只存在 auth-server，业务服务不保存：
 
 - 登录 push-server 不会登录 TaskOps
 - 登录 TaskOps 不会登录 opencode
-- 各服务可以单独重置密码、强制下线、轮换密钥
+- 各服务可以单独重置密码、强制下线
 - 所有服务共用同一个登录页和同一个管理后台
 
 当前默认域名：
@@ -125,9 +125,7 @@ uvicorn main:app --host 0.0.0.0 --port 8290
 ```dotenv
 AUTH_ENABLED=true
 SERVICE_ID=taskops
-SERVICE_SECRET=该服务自己的密钥
-SERVICE_TOKEN_VERSION=1
-SSO_STATE_URL=http://127.0.0.1:8290/api/auth/service
+SSO_VERIFY_URL=http://127.0.0.1:8290/api/auth/verify
 SSO_LOGIN_URL=https://auth.xct258.top/login
 SSO_COOKIE_NAME=sso_taskops
 SSO_COOKIE_DOMAIN=.xct258.top
@@ -160,16 +158,15 @@ SSO_ALLOWED_REDIRECT_SUFFIX=.xct258.top
 ### 服务
 
 - 添加 / 编辑 / 停用 / 删除服务
-- 自动生成独立密码、Cookie 名、签名密钥
+- 自动生成独立密码、Cookie
 - 重置密码
-- 轮换密钥
 - 强制下线（递增 Token 版本）
 - 查看 / 复制 `.env` 和 NPM 配置
 - 查看当前密码
 - 可选「上游使用 Basic Auth」：填写用户名/密码后，生成的 NPM 配置会自动注入 `Authorization: Basic ...`
 - 查看最近登录时间
 
-服务密码和密钥都可以在管理后台重新查看；密钥在「接入配置」里。
+服务密码可以在管理后台随时查看。
 
 ## 接入新服务
 
@@ -190,8 +187,6 @@ SSO_ALLOWED_REDIRECT_SUFFIX=.xct258.top
 
 ```text
 服务密码
-SERVICE_SECRET
-SERVICE_TOKEN_VERSION
 Cookie 名：sso_taskops
 ```
 
@@ -269,17 +264,9 @@ location @sso_login {
 
 带自己 Basic Auth 的服务（例如 opencode），在 SSO 通过后再注入它自己的 `Authorization` 头。
 
-## 两种验签模式
+## 验签方式
 
-### 本地验签
-
-业务服务自己保存 `SERVICE_SECRET`，用 `auth.py` 验证 Token 签名。优点是没有额外请求；缺点是强制下线需要服务查询 auth-server 的 Token 版本。
-
-模板：[`examples/sso-service/auth.py`](examples/sso-service/auth.py)
-
-### 集中验签
-
-业务服务不保存 `SERVICE_SECRET`，每个受保护请求带着 Cookie 调用：
+所有服务统一走 auth-server 集中验签。业务服务不保存 `SERVICE_SECRET`，每个受保护请求带着 Cookie 调用：
 
 ```text
 GET http://127.0.0.1:8290/api/auth/verify?service=<服务ID>
@@ -296,43 +283,35 @@ SSO_LOGIN_URL=https://auth.xct258.top/login
 SSO_VERIFY_URL=http://127.0.0.1:8290/api/auth/verify
 ```
 
-当前 `push-server`、`web-TaskOps` 使用集中验签，所以它们的 `.env` 里没有 `SERVICE_SECRET`。
+当前 `push-server`、`web-TaskOps`、`opencode`、`webtop` 都使用这种方式。
 
 代价：每个受保护请求多一次本机 auth-server 调用；auth-server 不可用时，这些服务会拒绝登录。
 
 ## Token 与 Cookie
 
-每个服务独立签名：
+Token 由 auth-server 内部签名，业务服务不参与验签：
 
 ```text
 Cookie: sso_<服务ID>
 
 Token: v1.<service_id>.<token_version>.<expires>.<signature>
-
-signature = HMAC-SHA256(
-  SERVICE_SECRET,
-  "v1.<service_id>.<token_version>.<expires>"
-)
 ```
 
-服务端校验：
+auth-server 验签时检查：
 
-1. `service_id` 必须等于自己的 `SERVICE_ID`
-2. `token_version` 必须等于 auth-server 当前值（`/api/auth/service/<slug>`），每次访问时同步一次
-3. HMAC 签名正确
+1. HMAC 签名正确
+2. `service_id` 与请求的 `service` 参数一致
+3. `token_version` 是数据库当前值
 4. `expires` 未过期
+5. 服务处于启用状态
 
-这样 `sso_push` 的 Cookie 无法用于访问 TaskOps。
+`SERVICE_SECRET` 不再下发给业务服务；签名密钥只在 auth-server 内部使用。
 
 ### 强制下线
 
 管理界面「强制下线」会递增服务端的 `token_version`。
 
-- NPM `auth_request` 模式：立即生效，因为每次都查 auth-server
-- 业务中间件模式：服务每次访问时读取 `/api/auth/service/<slug>`，下次请求生效
-- `SERVICE_TOKEN_VERSION` 只作为 auth-server 暂时不可达时的回退值
-
-「轮换密钥」会同时更换 `SERVICE_SECRET` 和 Token 版本，旧 Token 立即失效；同样需要把新配置更新到业务服务。
+- 所有服务：下一次请求立即生效，因为每次受保护请求都会查 auth-server
 
 ## 登录流程
 
@@ -347,7 +326,7 @@ Set-Cookie: sso_taskops=...; Domain=.xct258.top; HttpOnly
   ↓
 302 回 TaskOps
   ↓
-TaskOps 用 SERVICE_SECRET 验签
+TaskOps 调 auth-server 验签
 ```
 
 登录 push-server 不会产生 `sso_taskops`，因此不会登录 TaskOps。
@@ -392,11 +371,11 @@ SSO_COOKIE_DOMAIN=.xct258.top
 - 管理接口使用 CSRF Token
 - 服务密码使用 scrypt 哈希校验，同时用主密钥加密保存，供管理员查看
 - 上游 Basic Auth 密码同样用主密钥加密保存，不会出现在服务列表接口里
-- 服务密钥由主密钥 + 服务 ID + 随机盐派生，不直接存明文
+- Token 签名密钥只存在 auth-server；业务服务不保存
 - 登录接口按服务 + IP 限流：5 次失败锁 60 秒
 - `next` 只允许跳到该域名配置的后缀
 - 修改服务密码不会影响其他服务
-- 主密钥 `/data/.master_key` 和数据库 `/data/auth.db` 必须一起备份；丢失主密钥会导致所有服务密钥无法恢复
+- 主密钥 `/data/.master_key` 和数据库 `/data/auth.db` 必须一起备份；丢失主密钥会导致 Token 签名和密码密文无法恢复
 
 ## 验证
 

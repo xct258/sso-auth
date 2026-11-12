@@ -170,7 +170,6 @@ async function saveService() {
       secretInfo.value = {
         title: '服务创建成功',
         password: data.password,
-        secret: data.secret,
         cookie_name: data.cookie_name,
       }
     }
@@ -209,19 +208,6 @@ async function viewPassword(item) {
         }
   } catch (err) {
     error.value = err?.message || '读取密码失败'
-  }
-}
-
-async function rotateSecret(item) {
-  if (!window.confirm(`轮换 ${item.name} 的签名密钥？旧会话会立即失效。`)) return
-  try {
-    const data = await api(`/api/admin/services/${item.id}/rotate-secret`, {
-      method: 'POST',
-    })
-    secretInfo.value = { title: '密钥已轮换', secret: data.secret }
-    await load()
-  } catch (err) {
-    error.value = err?.message || '轮换失败'
   }
 }
 
@@ -569,9 +555,6 @@ onMounted(load)
                 <button class="admin-btn ghost" type="button" @click="resetPassword(item)">
                   重置密码
                 </button>
-                <button class="admin-btn ghost" type="button" @click="rotateSecret(item)">
-                  密钥
-                </button>
                 <button class="admin-btn ghost" type="button" @click="revoke(item)">
                   下线
                 </button>
@@ -603,15 +586,6 @@ onMounted(load)
           <span class="copy-row">
             <input :value="secretInfo.password" readonly />
             <button class="admin-btn ghost" type="button" @click="copy(secretInfo.password)">
-              复制
-            </button>
-          </span>
-        </label>
-        <label v-if="secretInfo.secret" class="copy-label">
-          签名密钥
-          <span class="copy-row">
-            <input :value="secretInfo.secret" readonly />
-            <button class="admin-btn ghost" type="button" @click="copy(secretInfo.secret)">
               复制
             </button>
           </span>

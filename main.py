@@ -19,7 +19,6 @@ auth-server，但登录态互不影响。
     GET/POST/PUT/DELETE /api/admin/domains
     GET/POST/PUT/DELETE /api/admin/services
     POST /api/admin/services/{id}/reset-password
-    POST /api/admin/services/{id}/rotate-secret
     POST /api/admin/services/{id}/revoke
     GET  /api/admin/services/{id}/config
     GET  /api/admin/audit
@@ -148,6 +147,7 @@ PASSWORD_KEY = base64.urlsafe_b64encode(
     hashlib.sha256(MASTER_KEY + b"service-password").digest()
 )
 PASSWORD_CIPHER = Fernet(PASSWORD_KEY)
+TOKEN_KEY = hmac.new(MASTER_KEY, b"service-token", hashlib.sha256).digest()
 
 
 def encrypt_password(password: str) -> str:
@@ -189,16 +189,6 @@ def verify_password(password: str, encoded: str) -> bool:
         return hmac.compare_digest(actual, expected)
     except (ValueError, TypeError):
         return False
-
-
-def service_secret(slug: str, salt: str) -> str:
-    message = f"service:{slug}:{salt}".encode("utf-8")
-    return b64e(hmac.new(MASTER_KEY, message, hashlib.sha256).digest())
-
-
-def new_service_secret(slug: str) -> tuple[str, str]:
-    salt = secrets.token_hex(16)
-    return service_secret(slug, salt), salt
 
 
 def is_https(request: Request) -> bool:
@@ -522,9 +512,7 @@ def service_token(service: dict[str, Any]) -> str:
         f"v1.{service['slug']}.{service['token_version']}.{expires}"
     )
     signature = hmac.new(
-        service_secret(service["slug"], service["secret_salt"]).encode("utf-8"),
-        payload.encode("utf-8"),
-        hashlib.sha256,
+        TOKEN_KEY, payload.encode("utf-8"), hashlib.sha256
     ).hexdigest()
     return f"{payload}.{signature}"
 
@@ -546,7 +534,7 @@ def verify_service_token(service: dict[str, Any], token: str | None) -> bool:
     except ValueError:
         return False
     expected = hmac.new(
-        service_secret(service["slug"], service["secret_salt"]).encode("utf-8"),
+        TOKEN_KEY,
         f"v1.{slug}.{token_version}.{expires}".encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
@@ -1194,7 +1182,7 @@ def create_service(payload: ServiceCreatePayload, request: Request):
                 status_code=400, detail="启用 Basic Auth 时必须填写用户名和密码"
             )
         basic_enc = encrypt_password(payload.basic_password)
-    secret, salt = new_service_secret(slug)
+    salt = ""
     cookie_name = f"sso_{slug.replace('-', '_')}"
     now = now_iso()
     try:
@@ -1239,7 +1227,6 @@ def create_service(payload: ServiceCreatePayload, request: Request):
     return {
         "service": public_service(service_row(service_id)),
         "password": password,
-        "secret": secret,
         "cookie_name": cookie_name,
     }
 
@@ -1344,30 +1331,6 @@ def reset_service_password(
     return {"password": password}
 
 
-@app.post("/api/admin/services/{service_id}/rotate-secret")
-def rotate_service_secret(service_id: int, request: Request):
-    admin = require_admin(request, csrf=True)
-    service = service_row(service_id)
-    secret, salt = new_service_secret(service["slug"])
-    with db_conn() as conn:
-        conn.execute(
-            """
-            UPDATE services
-            SET secret_salt = ?, token_version = token_version + 1, updated_at = ?
-            WHERE id = ?
-            """,
-            (salt, now_iso(), service_id),
-        )
-    audit(
-        actor=admin["username"],
-        action="service.secret",
-        target=str(service_id),
-        detail=service["slug"],
-        request=request,
-    )
-    return {"secret": secret, "token_version": service["token_version"] + 1}
-
-
 @app.post("/api/admin/services/{service_id}/revoke")
 def revoke_service_sessions(service_id: int, request: Request):
     admin = require_admin(request, csrf=True)
@@ -1395,16 +1358,12 @@ def revoke_service_sessions(service_id: int, request: Request):
 def service_config(service_id: int, request: Request):
     require_admin(request)
     service = service_row(service_id)
-    secret = service_secret(service["slug"], service["secret_salt"])
     login_url = f"https://{service['auth_host']}/login"
     suffix = service["allowed_suffix"] or service["cookie_domain"]
     env = "\n".join(
         [
-            "# 集中验签只用 SSO_VERIFY_URL；本地验签才需要 SERVICE_SECRET / SERVICE_TOKEN_VERSION",
             "AUTH_ENABLED=true",
             f"SERVICE_ID={service['slug']}",
-            f"SERVICE_SECRET={secret}",
-            f"SERVICE_TOKEN_VERSION={service['token_version']}",
             f"SSO_LOGIN_URL={login_url}",
             f"SSO_COOKIE_NAME={service['cookie_name']}",
             f"SSO_COOKIE_DOMAIN={service['cookie_domain']}",
