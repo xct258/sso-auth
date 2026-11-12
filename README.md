@@ -74,6 +74,10 @@ curl http://127.0.0.1:8290/api/health
 /data/initial_admin_password.txt
 ```
 
+> 如果先用 `uvicorn` 手动部署，数据默认在服务器 `/data`；以后切换 `docker compose` 时，
+> 需要把 `/data/auth.db` 和 `/data/.master_key` 复制到仓库的 `auth-server/data/`，
+> 否则容器会当成新实例重新初始化。
+
 登录管理后台：
 
 ```text
