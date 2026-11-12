@@ -58,6 +58,7 @@ from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote, urlsplit
 
+from cryptography.fernet import Fernet, InvalidToken
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import (
     FileResponse,
@@ -143,6 +144,23 @@ def load_master_key() -> bytes:
 
 MASTER_KEY = load_master_key()
 ADMIN_KEY = hmac.new(MASTER_KEY, b"admin-session", hashlib.sha256).digest()
+PASSWORD_KEY = base64.urlsafe_b64encode(
+    hashlib.sha256(MASTER_KEY + b"service-password").digest()
+)
+PASSWORD_CIPHER = Fernet(PASSWORD_KEY)
+
+
+def encrypt_password(password: str) -> str:
+    return PASSWORD_CIPHER.encrypt(password.encode("utf-8")).decode("ascii")
+
+
+def decrypt_password(token: str) -> str:
+    if not token:
+        return ""
+    try:
+        return PASSWORD_CIPHER.decrypt(token.encode("ascii")).decode("utf-8")
+    except (InvalidToken, ValueError):
+        return ""
 
 
 def hash_password(password: str) -> str:
@@ -240,6 +258,7 @@ CREATE TABLE IF NOT EXISTS services (
     slug TEXT NOT NULL UNIQUE,
     public_url TEXT NOT NULL DEFAULT '',
     password_hash TEXT NOT NULL,
+    password_enc TEXT NOT NULL DEFAULT '',
     secret_salt TEXT NOT NULL,
     cookie_name TEXT NOT NULL,
     session_days INTEGER NOT NULL DEFAULT 7,
@@ -301,6 +320,13 @@ def row_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
 def init_db() -> None:
     with db_conn() as conn:
         conn.executescript(SCHEMA)
+        columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(services)")
+        }
+        if "password_enc" not in columns:
+            conn.execute(
+                "ALTER TABLE services ADD COLUMN password_enc TEXT NOT NULL DEFAULT ''"
+            )
 
         if not conn.execute("SELECT 1 FROM domains LIMIT 1").fetchone():
             domain_name = os.environ.get("AUTH_DOMAIN_NAME", "xct258")
@@ -1092,7 +1118,7 @@ def public_service(row: dict[str, Any]) -> dict[str, Any]:
     return {
         key: value
         for key, value in row.items()
-        if key not in {"password_hash", "secret_salt"}
+        if key not in {"password_hash", "password_enc", "secret_salt"}
     }
 
 
@@ -1136,10 +1162,10 @@ def create_service(payload: ServiceCreatePayload, request: Request):
             cur = conn.execute(
                 """
                 INSERT INTO services
-                  (domain_id, name, slug, public_url, password_hash, secret_salt,
-                   cookie_name, session_days, token_version, enabled, notes,
-                   created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+                  (domain_id, name, slug, public_url, password_hash, password_enc,
+                   secret_salt, cookie_name, session_days, token_version, enabled,
+                   notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
                 """,
                 (
                     payload.domain_id,
@@ -1147,6 +1173,7 @@ def create_service(payload: ServiceCreatePayload, request: Request):
                     slug,
                     payload.public_url.strip(),
                     hash_password(password),
+                    encrypt_password(password),
                     salt,
                     cookie_name,
                     payload.session_days,
@@ -1224,6 +1251,21 @@ def delete_service(service_id: int, request: Request):
     return {"ok": True}
 
 
+@app.get("/api/admin/services/{service_id}/password")
+def view_service_password(service_id: int, request: Request):
+    admin = require_admin(request)
+    service = service_row(service_id)
+    password = decrypt_password(service["password_enc"])
+    audit(
+        actor=admin["username"],
+        action="service.password.view",
+        target=str(service_id),
+        detail=service["slug"],
+        request=request,
+    )
+    return {"password": password, "stored": bool(password)}
+
+
 @app.post("/api/admin/services/{service_id}/reset-password")
 def reset_service_password(
     service_id: int, payload: PasswordResetPayload, request: Request
@@ -1233,8 +1275,8 @@ def reset_service_password(
     password = payload.password or secrets.token_urlsafe(12)
     with db_conn() as conn:
         conn.execute(
-            "UPDATE services SET password_hash = ?, updated_at = ? WHERE id = ?",
-            (hash_password(password), now_iso(), service_id),
+            "UPDATE services SET password_hash = ?, password_enc = ?, updated_at = ? WHERE id = ?",
+            (hash_password(password), encrypt_password(password), now_iso(), service_id),
         )
     audit(
         actor=admin["username"],

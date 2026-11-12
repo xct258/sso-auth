@@ -133,7 +133,7 @@ SSO_COOKIE_DOMAIN=.xct258.top
 SSO_ALLOWED_REDIRECT_SUFFIX=.xct258.top
 ```
 
-业务服务不需要保存登录密码，密码哈希只存在 auth-server 数据库里。
+业务服务不需要保存登录密码；auth-server 同时保存 scrypt 哈希和主密钥加密的密码密文，管理后台可以按需查看当前密码。
 
 ## 管理控制台
 
@@ -164,9 +164,10 @@ SSO_ALLOWED_REDIRECT_SUFFIX=.xct258.top
 - 轮换密钥
 - 强制下线（递增 Token 版本）
 - 查看 / 复制 `.env` 和 NPM 配置
+- 查看当前密码
 - 查看最近登录时间
 
-服务创建成功后，密码和密钥只显示一次，请及时复制。
+服务密码和密钥都可以在管理后台重新查看；密钥在「接入配置」里。
 
 ## 接入新服务
 
@@ -355,7 +356,7 @@ SSO_COOKIE_DOMAIN=.xct258.top
 
 - 管理后台使用独立的管理员账号和 host-only Cookie，不设置父域
 - 管理接口使用 CSRF Token
-- 服务密码使用 scrypt 哈希
+- 服务密码使用 scrypt 哈希校验，同时用主密钥加密保存，供管理员查看
 - 服务密钥由主密钥 + 服务 ID + 随机盐派生，不直接存明文
 - 登录接口按服务 + IP 限流：5 次失败锁 60 秒
 - `next` 只允许跳到该域名配置的后缀

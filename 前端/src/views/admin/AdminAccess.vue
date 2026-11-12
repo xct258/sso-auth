@@ -186,6 +186,20 @@ async function resetPassword(item) {
   }
 }
 
+async function viewPassword(item) {
+  try {
+    const data = await api(`/api/admin/services/${item.id}/password`)
+    secretInfo.value = data.stored
+      ? { title: '当前密码', password: data.password }
+      : {
+          title: '当前密码',
+          empty: '该服务密码没有保存密文，请重置后查看。',
+        }
+  } catch (err) {
+    error.value = err?.message || '读取密码失败'
+  }
+}
+
 async function rotateSecret(item) {
   if (!window.confirm(`轮换 ${item.name} 的签名密钥？旧会话会立即失效。`)) return
   try {
@@ -514,8 +528,11 @@ onMounted(load)
                 <button class="admin-btn ghost" type="button" @click="showConfig(item)">
                   配置
                 </button>
+                <button class="admin-btn ghost" type="button" @click="viewPassword(item)">
+                  查看密码
+                </button>
                 <button class="admin-btn ghost" type="button" @click="resetPassword(item)">
-                  密码
+                  重置密码
                 </button>
                 <button class="admin-btn ghost" type="button" @click="rotateSecret(item)">
                   密钥
@@ -544,7 +561,8 @@ onMounted(load)
             关闭
           </button>
         </header>
-        <p class="admin-muted">这些值只在这里显示，请及时复制保存。</p>
+        <p class="admin-muted">请妥善保管；服务密码可以随时在这里重新查看。</p>
+        <p v-if="secretInfo.empty" class="admin-muted">{{ secretInfo.empty }}</p>
         <label v-if="secretInfo.password" class="copy-label">
           服务密码
           <span class="copy-row">
