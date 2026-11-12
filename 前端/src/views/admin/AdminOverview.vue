@@ -66,26 +66,19 @@ onMounted(async () => {
         <h2>最近动态</h2>
       </header>
       <p v-if="loading" class="admin-muted">加载中…</p>
-      <div v-else class="table-wrap">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>时间</th>
-              <th>动作</th>
-              <th>对象</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in data.recent" :key="item.created_at + item.action + item.target">
-              <td>{{ formatTime(item.created_at) }}</td>
-              <td><code>{{ item.action }}</code></td>
-              <td>{{ item.target || item.detail || '-' }}</td>
-            </tr>
-            <tr v-if="!data.recent.length">
-              <td colspan="3" class="admin-empty">还没有记录</td>
-            </tr>
-          </tbody>
-        </table>
+      <div v-else-if="!data.recent.length" class="admin-empty">还没有记录</div>
+      <div v-else class="recent-list">
+        <div
+          v-for="item in data.recent"
+          :key="item.created_at + item.action + item.target"
+          class="recent-item"
+        >
+          <div class="recent-main">
+            <code>{{ item.action }}</code>
+            <span>{{ item.target || item.detail || '-' }}</span>
+          </div>
+          <time>{{ formatTime(item.created_at) }}</time>
+        </div>
       </div>
     </section>
   </div>
