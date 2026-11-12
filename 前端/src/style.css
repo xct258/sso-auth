@@ -834,24 +834,83 @@ body.admin-mode #app {
   }
 
   .admin-sidebar {
-    position: static;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
     width: auto;
     height: auto;
+    padding: 10px 14px 8px;
     border-right: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(7, 12, 24, 0.78);
+    backdrop-filter: blur(18px) saturate(1.1);
+  }
+
+  .admin-brand {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    gap: 9px;
+  }
+
+  .admin-brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+
+  .admin-brand strong {
+    font-size: 13px;
+  }
+
+  .admin-brand small {
+    display: none;
   }
 
   .admin-nav {
+    order: 3;
     display: flex;
+    width: 100%;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
     overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .admin-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-nav a {
+    flex: 0 0 auto;
+    padding: 6px 11px;
+    border-radius: 8px;
+    font-size: 12px;
+    white-space: nowrap;
   }
 
   .admin-user {
-    margin-top: 12px;
+    order: 2;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .admin-user button {
+    padding: 4px 8px;
   }
 
   .admin-main {
-    padding: 22px 18px 50px;
+    padding: 18px 14px 44px;
   }
 
   .stat-grid {
