@@ -17,7 +17,7 @@ services:
       - SERVICE_PORT=${UVICORN_PORT:-8290}
 
       # 初始域名（仅第一次启动创建，之后在 /admin 管理）
-      - AUTH_DOMAIN_NAME=${AUTH_DOMAIN_NAME:xct258}
+      - AUTH_DOMAIN_NAME=${AUTH_DOMAIN_NAME:-xct258}
       - AUTH_HOST=${AUTH_HOST:-auth.xct258.top}
       - AUTH_COOKIE_DOMAIN=${AUTH_COOKIE_DOMAIN:-.xct258.top}
       - AUTH_ALLOWED_SUFFIX=${AUTH_ALLOWED_SUFFIX:-.xct258.top}
