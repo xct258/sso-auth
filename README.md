@@ -248,8 +248,9 @@ app.include_router(auth.router)
 ```nginx
 location = /_sso_auth {
     internal;
-    # NPM 与 auth-server 同机，内部走回环，避免绕 Cloudflare
-    proxy_pass http://127.0.0.1:8290/api/auth/verify?service=taskops;
+    proxy_pass https://auth.xct258.top/api/auth/verify?service=taskops;
+    proxy_ssl_server_name on;
+    proxy_set_header Host auth.xct258.top;
     proxy_pass_request_body off;
     proxy_set_header Content-Length "";
 }

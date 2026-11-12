@@ -1382,7 +1382,9 @@ def service_config(service_id: int, request: Request):
             basic_header = f'    proxy_set_header Authorization "Basic {token}";\n'
     nginx = f"""location = /_sso_auth {{
     internal;
-    proxy_pass http://127.0.0.1:8290/api/auth/verify?service={service['slug']};
+    proxy_pass https://{service['auth_host']}/api/auth/verify?service={service['slug']};
+    proxy_ssl_server_name on;
+    proxy_set_header Host {service['auth_host']};
     proxy_pass_request_body off;
     proxy_set_header Content-Length "";
 }}
