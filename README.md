@@ -512,6 +512,18 @@ curl -i -b /tmp/sso.jar \
 
 ## 常见问题
 
+### 停用服务后访问会发生什么
+
+如果服务走 NPM `auth_request`：
+
+1. 访问服务域名
+2. NPM 调 `/api/auth/verify`
+3. auth-server 返回 401（服务停用或不存在）
+4. NPM 302 到统一登录页
+5. 登录页显示“服务已停用”或“服务不存在”的明确错误页
+
+不会只返回裸的 `403 Forbidden`。
+
 ### 登录页提示“服务不存在”
 
 说明访问地址里的 `service` 没有在 auth-server 注册，或者服务已经被删除。

@@ -850,7 +850,12 @@ def service_state(slug: str):
 
 @app.get("/api/auth/verify")
 def auth_verify(request: Request, service: str = ""):
-    svc = require_service_for_request(request, service)
+    try:
+        svc = require_service_for_request(request, service)
+    except HTTPException:
+        # 停用或不存在也返回 401，让 NPM 的 error_page 401 跳到登录页，
+        # 由登录页显示更明确的“服务已停用 / 服务不存在”页面。
+        return JSONResponse({"detail": "服务不存在或已停用"}, status_code=401)
     if service_authenticated(request, svc):
         return Response(
             status_code=204, headers={"X-Auth-Service": svc["slug"]}
