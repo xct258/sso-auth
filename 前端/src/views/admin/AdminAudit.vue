@@ -2,10 +2,10 @@
 import { computed, onMounted, ref } from 'vue'
 
 import { api } from '@/api/admin'
+import { notify } from '@/composables/useToast'
 
 const logs = ref([])
 const loading = ref(true)
-const error = ref('')
 const limit = ref(100)
 const query = ref('')
 
@@ -32,7 +32,7 @@ async function load() {
   try {
     logs.value = await api(`/api/admin/audit?limit=${limit.value}`)
   } catch (err) {
-    error.value = err?.message || '加载失败'
+    notify(err?.message || '加载失败', 'error')
   } finally {
     loading.value = false
   }
@@ -61,8 +61,6 @@ onMounted(load)
         </select>
       </div>
     </header>
-
-    <p v-if="error" class="admin-alert">{{ error }}</p>
 
     <section class="admin-card">
       <div v-if="loading" class="admin-empty">加载中…</div>

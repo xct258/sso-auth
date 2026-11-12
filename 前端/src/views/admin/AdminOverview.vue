@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 
 import { api } from '@/api/admin'
+import { notify } from '@/composables/useToast'
 
 const data = ref({
   domains: 0,
@@ -11,7 +12,6 @@ const data = ref({
   recent: [],
 })
 const loading = ref(true)
-const error = ref('')
 
 function formatTime(value) {
   if (!value) return '-'
@@ -24,7 +24,7 @@ onMounted(async () => {
   try {
     data.value = await api('/api/admin/overview')
   } catch (err) {
-    error.value = err?.message || '加载失败'
+    notify(err?.message || '加载失败', 'error')
   } finally {
     loading.value = false
   }
@@ -39,8 +39,6 @@ onMounted(async () => {
         <p>域名、服务与最近登录情况</p>
       </div>
     </header>
-
-    <p v-if="error" class="admin-alert">{{ error }}</p>
 
     <section class="stat-grid">
       <div class="stat-card">

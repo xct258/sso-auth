@@ -3,13 +3,12 @@ import { computed, onMounted, reactive, ref } from 'vue'
 
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { api } from '@/api/admin'
+import { notify } from '@/composables/useToast'
 
 const domains = ref([])
 const services = ref([])
 const selectedDomainId = ref(null)
 const loading = ref(true)
-const error = ref('')
-const notice = ref('')
 
 const showServiceForm = ref(false)
 const editingService = ref(null)
@@ -19,8 +18,6 @@ const editingDomain = ref(null)
 const savingDomain = ref(false)
 const secretInfo = ref(null)
 const configInfo = ref(null)
-const toast = ref(null)
-let toastTimer = 0
 const confirmOpen = ref(false)
 const confirmData = ref(null)
 
@@ -34,14 +31,6 @@ async function runConfirm() {
   confirmOpen.value = false
   if (action) await action()
   confirmData.value = null
-}
-
-function notify(message, type = 'success') {
-  toast.value = { message, type }
-  window.clearTimeout(toastTimer)
-  toastTimer = window.setTimeout(() => {
-    toast.value = null
-  }, 2400)
 }
 
 const serviceForm = reactive({
@@ -141,7 +130,7 @@ async function load() {
     }
     if (!serviceForm.domain_id) serviceForm.domain_id = selectedDomainId.value
   } catch (err) {
-    error.value = err?.message || '加载失败'
+    notify(err?.message || '加载失败', 'error')
   } finally {
     loading.value = false
   }
@@ -151,8 +140,6 @@ function openCreateService() {
   resetServiceForm()
   showServiceForm.value = true
   showDomainForm.value = false
-  error.value = ''
-  notice.value = ''
 }
 
 function openEditService(item) {
@@ -173,15 +160,11 @@ function openEditService(item) {
   editingService.value = item
   showServiceForm.value = true
   showDomainForm.value = false
-  error.value = ''
-  notice.value = ''
 }
 
 async function saveService() {
-  error.value = ''
-  notice.value = ''
   if (!serviceForm.auth_mode) {
-    error.value = '请选择接入方式：NPM 或业务代码'
+    notify('请选择接入方式：NPM 或业务代码', 'error')
     return
   }
   savingService.value = true
@@ -201,7 +184,7 @@ async function saveService() {
           notes: serviceForm.notes,
         }),
       })
-      notice.value = '服务已更新'
+      notify('服务已更新')
     } else {
       const data = await api('/api/admin/services', {
         method: 'POST',
@@ -221,7 +204,7 @@ async function saveService() {
     resetServiceForm()
     await load()
   } catch (err) {
-    error.value = err?.message || '保存失败'
+    notify(err?.message || '保存失败', 'error')
   } finally {
     savingService.value = false
   }
@@ -241,7 +224,7 @@ function resetPassword(item) {
         secretInfo.value = { title: '密码已重置', password: data.password }
         await load()
       } catch (err) {
-        error.value = err?.message || '重置失败'
+        notify(err?.message || '重置失败', 'error')
       }
     },
   })
@@ -257,7 +240,7 @@ async function viewPassword(item) {
           empty: '该服务密码没有保存密文，请重置后查看。',
         }
   } catch (err) {
-    error.value = err?.message || '读取密码失败'
+    notify(err?.message || '读取密码失败', 'error')
   }
 }
 
@@ -269,10 +252,10 @@ function revoke(item) {
     action: async () => {
       try {
         await api(`/api/admin/services/${item.id}/revoke`, { method: 'POST' })
-        notice.value = '已强制下线'
+        notify('已强制下线')
         await load()
       } catch (err) {
-        error.value = err?.message || '操作失败'
+        notify(err?.message || '操作失败', 'error')
       }
     },
   })
@@ -287,10 +270,10 @@ function removeService(item) {
     action: async () => {
       try {
         await api(`/api/admin/services/${item.id}`, { method: 'DELETE' })
-        notice.value = '服务已删除'
+        notify('服务已删除')
         await load()
       } catch (err) {
-        error.value = err?.message || '删除失败'
+        notify(err?.message || '删除失败', 'error')
       }
     },
   })
@@ -300,7 +283,7 @@ async function showConfig(item) {
   try {
     configInfo.value = await api(`/api/admin/services/${item.id}/config`)
   } catch (err) {
-    error.value = err?.message || '加载配置失败'
+    notify(err?.message || '加载配置失败', 'error')
   }
 }
 
@@ -317,26 +300,22 @@ function openEditDomain(item) {
   editingDomain.value = item
   showDomainForm.value = true
   showServiceForm.value = false
-  error.value = ''
-  notice.value = ''
 }
 
 async function saveDomain() {
   if (!editingDomain.value) return
   savingDomain.value = true
-  error.value = ''
-  notice.value = ''
   try {
     await api(`/api/admin/domains/${editingDomain.value.id}`, {
       method: 'PUT',
       body: JSON.stringify(domainForm),
     })
-    notice.value = '登录域名已更新'
+    notify('登录域名已更新')
     showDomainForm.value = false
     resetDomainForm()
     await load()
   } catch (err) {
-    error.value = err?.message || '保存失败'
+    notify(err?.message || '保存失败', 'error')
   } finally {
     savingDomain.value = false
   }
@@ -368,8 +347,6 @@ onMounted(load)
       </div>
     </header>
 
-    <p v-if="error" class="admin-alert">{{ error }}</p>
-    <p v-if="notice" class="admin-notice">{{ notice }}</p>
 
     <section v-if="selectedDomain" class="admin-card access-domain">
       <div class="access-domain-main">
@@ -437,7 +414,6 @@ onMounted(load)
           <input v-model="domainForm.enabled" type="checkbox" />
           启用
         </label>
-        <p v-if="error" class="admin-alert wide">{{ error }}</p>
         <div class="form-actions">
           <button class="admin-btn primary" type="submit" :disabled="savingDomain">
             {{ savingDomain ? '保存中…' : '保存' }}
@@ -513,9 +489,6 @@ onMounted(load)
               </span>
             </label>
           </div>
-          <small v-if="!serviceForm.auth_mode" class="auth-mode-hint">
-            请选择一种接入方式
-          </small>
         </fieldset>
         <label>
           服务 ID
@@ -576,7 +549,6 @@ onMounted(load)
           <input v-model="serviceForm.enabled" type="checkbox" />
           启用
         </label>
-        <p v-if="error" class="admin-alert wide">{{ error }}</p>
         <div class="form-actions">
           <button class="admin-btn primary" type="submit" :disabled="savingService">
             {{ savingService ? '保存中…' : '保存' }}
@@ -737,6 +709,5 @@ onMounted(load)
       @confirm="runConfirm"
     />
 
-    <div v-if="toast" :class="['admin-toast', toast.type]">{{ toast.message }}</div>
   </div>
 </template>

@@ -2,6 +2,7 @@
 import { reactive, ref } from 'vue'
 
 import { api } from '@/api/admin'
+import { notify } from '@/composables/useToast'
 
 const form = reactive({
   current_password: '',
@@ -9,18 +10,14 @@ const form = reactive({
   confirm: '',
 })
 const saving = ref(false)
-const error = ref('')
-const notice = ref('')
 
 async function save() {
-  error.value = ''
-  notice.value = ''
   if (form.new_password.length < 8) {
-    error.value = '新密码至少 8 位'
+    notify('新密码至少 8 位', 'error')
     return
   }
   if (form.new_password !== form.confirm) {
-    error.value = '两次输入的新密码不一致'
+    notify('两次输入的新密码不一致', 'error')
     return
   }
   saving.value = true
@@ -32,12 +29,12 @@ async function save() {
         new_password: form.new_password,
       }),
     })
-    notice.value = '管理员密码已更新'
+    notify('管理员密码已更新')
     form.current_password = ''
     form.new_password = ''
     form.confirm = ''
   } catch (err) {
-    error.value = err?.message || '保存失败'
+    notify(err?.message || '保存失败', 'error')
   } finally {
     saving.value = false
   }
@@ -52,9 +49,6 @@ async function save() {
         <p>管理员账号与安全设置</p>
       </div>
     </header>
-
-    <p v-if="error" class="admin-alert">{{ error }}</p>
-    <p v-if="notice" class="admin-notice">{{ notice }}</p>
 
     <section class="admin-card narrow">
       <header class="admin-card-head">
@@ -86,10 +80,10 @@ async function save() {
         <h2>部署提示</h2>
       </header>
       <ul class="admin-list">
-        <li>每个服务在「服务管理」中拥有独立密码、Cookie 和签名密钥。</li>
+        <li>每个服务拥有独立密码和 Cookie；签名密钥只存在 auth-server。</li>
         <li>管理后台 Cookie 不设置父域，不会发送给业务子域。</li>
         <li>主密钥保存在 <code>/data/.master_key</code>，请与数据库一起备份。</li>
-        <li>切换登录中心域名时，新增域名记录并更新服务环境变量即可。</li>
+        <li>修改登录域名后，需要同步更新业务服务的环境变量。</li>
       </ul>
     </section>
   </div>
