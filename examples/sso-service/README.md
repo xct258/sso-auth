@@ -182,6 +182,6 @@ curl -i -b /tmp/sso.jar http://127.0.0.1:9000/api/private
 - 每个服务使用不同的 `SSO_COOKIE_NAME`。
 - 业务服务不保存 `SERVICE_SECRET`。
 - auth-server 不可用时，业务服务会拒绝登录；这是集中验签的代价。
-- 服务统一使用 `https://auth.xct258.top/api/auth/verify`；只有 NPM 同机内部 `auth_request` 才走 `127.0.0.1:8290`。
+- 服务统一使用 `https://auth.xct258.top/api/auth/verify`；NPM 的 `auth_request` 也使用公网 HTTPS。如果同机部署出现延迟或 502，可把 NPM 这一处单独改回内网地址。
 - 生产必须 HTTPS，并让 NPM 传 `X-Forwarded-Proto: https`。
 - Cookie 是 HttpOnly，前端读不到，登录状态只看 `/api/auth/status`。

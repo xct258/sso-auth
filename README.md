@@ -9,14 +9,15 @@
 - 各服务可以单独重置密码、强制下线
 - 所有服务共用同一个登录页和同一个管理后台
 
-当前默认域名：
+当前生产使用：
 
 ```text
-auth.xct258.top
-Cookie Domain: .xct258.top
+登录入口：   https://auth.xct258.top
+Cookie 父域：.xct258.top
+管理后台：   https://auth.xct258.top/admin
 ```
 
-后续可以增加 `auth.xct258.top` 等域名；域名、服务都在管理界面维护。
+同一父域下的服务都由这一个登录中心管理。以后要接入其他父域（例如 `example.com`），在管理界面新增域名即可。
 
 ## 架构
 
@@ -42,6 +43,42 @@ Cookie 名:     sso_push / sso_taskops / sso_opencode
 ```
 
 服务只读取自己的 Cookie，因此登录态互不影响。
+
+## 两种接入方式
+
+| 方式 | 是否改代码 | 适用 |
+| --- | --- | --- |
+| NPM `auth_request` | 不需要 | opencode、Webtop、第三方 Web 服务 |
+| 业务中间件 `auth.py` | 需要 | push-server、TaskOps、自己完全控制源码的服务 |
+
+两种方式最终都是调用 auth-server：
+
+```text
+GET https://auth.xct258.top/api/auth/verify?service=<服务ID>
+```
+
+auth-server 返回 `204` 放行，`401` 拒绝。
+
+### NPM 方式
+
+```text
+浏览器 → NPM → auth_request → auth-server → NPM → 上游服务
+```
+
+- 不改业务代码
+- 支持 WebSocket
+- 可以自动注入上游 Basic Auth
+- 适合不能改代码的服务
+
+### 业务中间件方式
+
+```text
+浏览器 → 业务服务 → auth-server 验签 → 业务响应
+```
+
+- 可以区分页面 302 和 API 401
+- 可以自定义公开路径
+- 适合自己写的 FastAPI / Vue 应用
 
 ## 快速部署
 
@@ -119,6 +156,8 @@ uvicorn main:app --host 127.0.0.1 --port 8290
 | `AUTH_DB_PATH` | `/data/auth.db` | SQLite 路径 |
 | `AUTH_KEY_PATH` | `/data/.master_key` | 主密钥路径 |
 | `AUTH_MASTER_KEY` | 空 | 可选，64 位 hex；优先级高于文件 |
+| `UVICORN_HOST` | `127.0.0.1` | 监听地址；NPM 同机时保持回环 |
+| `UVICORN_PORT` | `8290` | 监听端口 |
 
 ### 业务服务
 
@@ -258,6 +297,16 @@ location = /_sso_auth {
 location / {
     auth_request /_sso_auth;
     error_page 401 = @sso_login;
+
+    # 可选：上游自带 Basic Auth 时注入
+    # proxy_set_header Authorization "Basic <base64(用户名:密码)>";
+
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $http_connection;
+    proxy_http_version 1.1;
+    proxy_buffering off;
+    proxy_read_timeout 3600s;
+
     include conf.d/include/proxy.conf;
 }
 
@@ -266,7 +315,13 @@ location @sso_login {
 }
 ```
 
-带自己 Basic Auth 的服务（例如 opencode），在 SSO 通过后再注入它自己的 `Authorization` 头。
+带自己 Basic Auth 的服务（例如 opencode、Webtop），在管理界面勾选「上游使用 Basic Auth」，生成的配置会自动带上：
+
+```nginx
+proxy_set_header Authorization "Basic ...";
+```
+
+Basic 密码同样用主密钥加密保存，不会出现在服务列表接口里。编辑服务时密码留空表示不修改。
 
 ## 验签方式
 
@@ -287,9 +342,9 @@ SSO_LOGIN_URL=https://auth.xct258.top/login
 SSO_VERIFY_URL=https://auth.xct258.top/api/auth/verify
 ```
 
-当前 `push-server`、`web-TaskOps`、`opencode`、`webtop` 都使用这种方式。
+当前 `push-server`、`web-TaskOps` 使用业务中间件方式；opencode、Webtop 这类第三方服务使用 NPM `auth_request`。
 
-代价：每个受保护请求多一次本机 auth-server 调用；auth-server 不可用时，这些服务会拒绝登录。
+代价：每个受保护请求多一次 auth-server 调用；auth-server 不可用时，这些服务会拒绝登录。
 
 ## Token 与 Cookie
 
@@ -335,39 +390,68 @@ TaskOps 调 auth-server 验签
 
 登录 push-server 不会产生 `sso_taskops`，因此不会登录 TaskOps。
 
-## 后续切换到 auth.xct258.top
+## 增加其他父域
 
-当前先用：
+当前只使用 `xct258.top`。如果要接入完全不同的父域，例如 `example.com`：
 
-```text
-auth.xct258.top
-Cookie Domain: .xct258.top
-```
-
-以后切换时不需要改代码：
-
-1. 给 `auth.xct258.top` 加 DNS 和 NPM Proxy Host
-2. 管理界面添加域名：
+1. DNS 添加 `auth.example.com`
+2. NPM 添加 Proxy Host 指向 `127.0.0.1:8290`
+3. 申请 `auth.example.com` 的 HTTPS 证书
+4. 管理界面「接入管理」→「添加域名」：
 
 ```text
-名称:           xct258
-登录主机:       auth.xct258.top
-Cookie 父域:    .xct258.top
-允许跳转后缀:   .xct258.top
+名称:           example
+登录主机:       auth.example.com
+Cookie 父域:    .example.com
+允许跳转后缀:   .example.com
 ```
 
-3. 把服务环境变量改为：
+5. 该域名下的服务使用：
 
 ```dotenv
-SSO_LOGIN_URL=https://auth.xct258.top/login
-SSO_COOKIE_DOMAIN=.xct258.top
+SSO_LOGIN_URL=https://auth.example.com/login
+SSO_COOKIE_DOMAIN=.example.com
+SSO_VERIFY_URL=https://auth.example.com/api/auth/verify
 ```
 
-4. 用户重新登录一次
+不同父域之间 Cookie 不共享，所以用户在不同父域下需要分别登录。这是浏览器 Cookie 的限制，不是系统缺陷。
 
-旧域名可以保留一段时间，做 302 跳到新域名。
+## NPM 与 auth-server 不在同一台机器
 
-> `.xct258.top` 会覆盖所有子域，包括 `o1-1.xct258.top`。如果 `o1-1` 下有可信度较低的服务，可以继续隔离在 `.o1-1.xct258.top`。
+当前生产是：
+
+```nginx
+proxy_pass https://auth.xct258.top/api/auth/verify?service=webtop;
+proxy_ssl_server_name on;
+proxy_set_header Host auth.xct258.top;
+```
+
+如果 NPM 和 auth-server 分开部署：
+
+### 内网地址（推荐）
+
+```nginx
+proxy_pass http://10.0.0.5:8290/api/auth/verify?service=webtop;
+proxy_set_header Host auth.xct258.top;
+```
+
+auth-server 需要监听内网地址：
+
+```dotenv
+UVICORN_HOST=10.0.0.5
+```
+
+或者监听 `0.0.0.0`，并用防火墙只允许 NPM 的 IP。
+
+### 公网 HTTPS
+
+```nginx
+proxy_pass https://auth.xct258.top/api/auth/verify?service=webtop;
+proxy_ssl_server_name on;
+proxy_set_header Host auth.xct258.top;
+```
+
+注意：如果 NPM 自己就负责 `auth.xct258.top`，这条路径会绕 Cloudflare 再回到自己，延迟会变大。实际部署后如果出现 502、403 或明显变慢，可以把 NPM 这一处单独改回内网地址，业务服务的 `SSO_VERIFY_URL` 继续使用公网 HTTPS。
 
 ## 安全说明
 
@@ -405,6 +489,130 @@ curl -i -c /tmp/sso.jar \
 curl -i -b /tmp/sso.jar \
   'https://auth.xct258.top/api/auth/verify?service=taskops'        # 204
 ```
+
+## API 端点
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/health` | 健康检查 |
+| `GET` | `/api/site` | 管理登录页的站点名和壁纸 |
+| `GET` | `/api/config?service=slug` | 服务登录页配置 |
+| `GET` | `/api/auth/status?service=slug` | 服务登录状态 |
+| `POST` | `/api/auth/login?service=slug` | 服务登录 |
+| `POST` | `/api/auth/logout?service=slug` | 退出当前服务 |
+| `GET` | `/api/auth/verify?service=slug` | 集中验签：204 / 401 |
+| `GET` | `/api/auth/service/slug` | 服务启用状态 / Token 版本 |
+| `POST` | `/api/admin/login` | 管理员登录，只需要密码 |
+| `GET` | `/api/admin/services` | 服务列表 |
+| `GET` | `/api/admin/services/{id}/config` | 生成 `.env` 和 NPM 配置 |
+| `GET` | `/api/admin/services/{id}/password` | 查看当前服务密码 |
+| `POST` | `/api/admin/services/{id}/reset-password` | 重置服务密码 |
+| `POST` | `/api/admin/services/{id}/revoke` | 强制下线 |
+| `GET` | `/api/admin/audit` | 审计日志 |
+
+## 常见问题
+
+### 登录后又跳回登录页
+
+1. 检查 `SSO_COOKIE_NAME` 是否和服务记录里的 Cookie 名一致
+2. 检查 `SSO_COOKIE_DOMAIN` 是否是 `.xct258.top`
+3. 检查服务域名是否也在 `.xct258.top` 下
+4. 检查 `SSO_VERIFY_URL` 是否能访问：
+
+```bash
+curl -I 'https://auth.xct258.top/api/auth/verify?service=taskops'
+```
+
+### NPM 返回 502 / 403
+
+NPM 的 `auth_request` 如果使用公网：
+
+```nginx
+proxy_pass https://auth.xct258.top/api/auth/verify?service=webtop;
+```
+
+会经过 Cloudflare 再回到 NPM。可能遇到：
+
+- Cloudflare 403：检查 User-Agent / WAF
+- 502：NPM 无法访问公网或 DNS
+- 延迟明显：NPM 这一处改回内网地址
+
+内网地址示例：
+
+```nginx
+proxy_pass http://10.0.0.5:8290/api/auth/verify?service=webtop;
+proxy_set_header Host auth.xct258.top;
+```
+
+### 返回 404：服务不属于当前登录主机
+
+auth-server 会检查请求 Host 是否等于服务的 `auth_host`。
+
+远程 NPM 调用时加上：
+
+```nginx
+proxy_set_header Host auth.xct258.top;
+```
+
+### 下线后还能访问
+
+1. 确认业务服务用的是最新代码和 `SSO_VERIFY_URL`
+2. 确认 auth-server 可以从业务服务访问
+3. 确认管理后台点的是对应服务，不是别的服务
+
+### 管理后台密码忘了
+
+初始密码在：
+
+```bash
+cat /data/initial_admin_password.txt
+```
+
+如果修改后忘记，需要直接修改数据库里的管理员密码哈希，或者重新初始化管理员。
+
+### 服务密码忘了
+
+管理后台：
+
+```text
+接入管理 → 服务 → 查看密码
+```
+
+如果密码密文也无法解密，只能重置。
+
+### auth-server 挂了
+
+集中验签模式下，所有业务服务都会拒绝登录或返回 401。
+
+这是集中验签的代价。需要保证 auth-server 的可用性：
+
+- NPM 和 auth-server 同机时优先走回环
+- 配置进程自动重启
+- 监控 `/api/health`
+
+## 备份与恢复
+
+必须一起备份：
+
+```text
+/data/auth.db
+/data/.master_key
+```
+
+建议同时备份：
+
+```text
+/data/initial_admin_password.txt
+/data/sso-service-passwords.txt
+/data/*-sso-nginx.conf
+```
+
+注意：
+
+- `/data/.master_key` 丢失后，Token 签名和密码密文都无法恢复
+- 数据库和主密钥不要放在同一个未加密备份里
+- 恢复时保持文件权限 `600`
+- 恢复后重启 auth-server
 
 ## 从旧版本迁移
 
