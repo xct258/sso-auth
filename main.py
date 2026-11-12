@@ -629,6 +629,19 @@ class ServiceLoginPayload(BaseModel):
     password: str = ""
 
 
+@app.get("/api/site")
+def site_config(request: Request):
+    """管理登录页 / 根路径使用的站点配置，不需要 service 参数。"""
+    domain = resolve_domain(request_host(request))
+    if not domain:
+        return {"site_name": "统一登录", "wallpaper_url": ""}
+    return {
+        "site_name": domain["site_name"],
+        "wallpaper_url": domain["wallpaper_url"],
+        "auth_host": domain["auth_host"],
+    }
+
+
 @app.get("/api/config")
 def public_config(request: Request, service: str = ""):
     svc = require_service_for_request(request, service)

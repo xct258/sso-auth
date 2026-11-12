@@ -1,7 +1,16 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import LoadingScreen from '@/components/LoadingScreen.vue'
+import {
+  loadWallpaper,
+  wallpaperFailed,
+  wallpaperProgress,
+  wallpaperReady,
+  wallpaperSrc,
+  wallpaperTimedOut,
+} from '@/composables/useWallpaper'
 import { adminLogin } from '@/api/admin'
 
 const route = useRoute()
@@ -11,11 +20,33 @@ const username = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+const siteName = ref('统一登录')
+const wallpaperUrl = ref('')
 
 const nextPath = computed(() => {
   const raw = String(route.query.next || '')
   return raw.startsWith('/admin') ? raw : '/admin'
 })
+
+async function fetchSite() {
+  return fetch('/api/site', { credentials: 'same-origin', cache: 'no-store' })
+    .then((response) => response.json())
+    .catch(() => ({}))
+}
+
+async function boot() {
+  const config = await fetchSite()
+  if (config.site_name) siteName.value = config.site_name
+  document.title = `${siteName.value} · 管理控制台`
+  wallpaperUrl.value = config.wallpaper_url || ''
+  await loadWallpaper(wallpaperUrl.value)
+}
+
+async function retryWallpaper() {
+  const config = await fetchSite()
+  wallpaperUrl.value = config.wallpaper_url || ''
+  await loadWallpaper(wallpaperUrl.value)
+}
 
 async function submit() {
   if (loading.value) return
@@ -35,10 +66,25 @@ async function submit() {
     loading.value = false
   }
 }
+
+onMounted(boot)
 </script>
 
 <template>
-  <main class="wrap">
+  <div class="bg" :class="{ loaded: wallpaperReady }">
+    <img v-if="wallpaperSrc" :src="wallpaperSrc" alt="" />
+  </div>
+
+  <LoadingScreen
+    v-if="!wallpaperReady"
+    :progress="wallpaperProgress"
+    :site-name="siteName"
+    :failed="wallpaperFailed"
+    :timed-out="wallpaperTimedOut"
+    @retry="retryWallpaper"
+  />
+
+  <main v-else class="wrap">
     <form class="card" novalidate @submit.prevent="submit">
       <div class="brand">
         <div class="logo" aria-hidden="true">
@@ -57,7 +103,7 @@ async function submit() {
         </div>
         <div class="brand-text">
           <h1>管理控制台</h1>
-          <p>登录后管理域名与服务</p>
+          <p>{{ siteName }} · 登录后管理域名与服务</p>
         </div>
       </div>
 
