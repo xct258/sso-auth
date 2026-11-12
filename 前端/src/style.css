@@ -1409,3 +1409,54 @@ body.admin-mode #app {
     grid-template-columns: 1fr;
   }
 }
+
+/* 滚动条美化 */
+:root {
+  --scrollbar-thumb: rgba(129, 140, 248, 0.32);
+  --scrollbar-thumb-hover: rgba(129, 140, 248, 0.58);
+  --scrollbar-track: rgba(255, 255, 255, 0.03);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+body.admin-mode {
+  scrollbar-gutter: stable;
+}
+
+.admin-modal textarea,
+.admin-modal .admin-modal {
+  scrollbar-width: thin;
+}
+
+.admin-nav {
+  scrollbar-width: none;
+}
