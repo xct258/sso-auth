@@ -10,6 +10,9 @@ __pycache__/
 *.log
 *.pid
 
-# 前端依赖与构建产物（部署时由 Docker 构建）
+# 前端依赖与构建产物（部署时由模板构建）
 前端/node_modules/
 static/dist/
+
+# 模板运行数据卷
+data/

@@ -23,13 +23,28 @@
 
 ## 快速部署
 
+镜像由 GitHub Actions 按 `install/app.conf` 构建并推送 Docker Hub：
+
+- 仓库 Actions → **Build and Push Docker Image** → Run workflow
+- 需要 Secrets：`DOCKERACC` / `DOCKERPWD`
+- 镜像：`xct258/sso-auth:latest`
+
+服务器上：
+
 ```bash
 cd auth-server
 cp .env.example .env
 # 修改 .env：APP_PASSWORD、APP_SECRET、SSO_COOKIE_DOMAIN、SSO_LOGIN_URL 等
-docker compose up -d --build
+docker compose up -d
 curl http://127.0.0.1:8290/api/health
 ```
+
+容器启动时：
+
+1. `template/start.sh` 执行 `startup/prepare.sh`
+2. 把镜像里 `/opt/sso-auth` 的 `main.py`、`static/dist` 同步到 `/data`
+3. `startup/services.sh` 启动 `uvicorn main:app --app-dir /data --port 8290`
+4. 日志写入 `/data/logs`，服务日志在 `/data/logs/service/api.log`
 
 直接用 Python 跑（开发调试）：
 
@@ -43,9 +58,40 @@ SSO_PUBLIC_HOST=127.0.0.1 \
 uvicorn main:app --host 0.0.0.0 --port 8290
 ```
 
+## 模板结构
+
+与 `xct258/docker-image-template` 一致：
+
+```text
+check.sh
+docker-compose.yml
+.github/workflows/build-image.yml
+install/
+  app.conf
+  install.sh
+  custom-install.sh
+startup/
+  main.sh
+  once.sh
+  prepare.sh
+  services.sh
+  update.sh
+template/
+  Dockerfile
+  start.sh
+  supervisor.sh
+```
+
+- `install/app.conf`：镜像名、架构、apt/pip 依赖
+- `install/custom-install.sh`：下载当前提交源码，下载 Node 构建 `前端/`，产物放到 `/opt/sso-auth/static/dist`
+- `startup/prepare.sh`：每次启动把应用和前端同步到 `/data`
+- `startup/services.sh`：声明 `uvicorn` 服务
+- `template/`：固定模板，不修改
+- `check.sh`：构建前校验，CI 会先执行
+
 ## 登录页（Vue 3 + Vite）
 
-登录页源码在 `前端/`，构建产物输出到 `static/dist/`，由 FastAPI 直接托管；生产环境不需要 Node 运行时。
+登录页源码在 `前端/`，构建产物输出到 `static/dist/`，由 FastAPI 直接托管；运行镜像不需要 Node。
 
 ```bash
 cd 前端
@@ -54,13 +100,12 @@ npm run dev      # http://127.0.0.1:5182，/api 自动反代到 8290
 npm run build    # 输出到 ../static/dist
 ```
 
-Dockerfile 使用多阶段构建：Node 阶段编译 Vue，Python 阶段只拷贝 `static/dist`。
+镜像构建阶段由 `install/custom-install.sh` 自动完成前端构建。
 
 - `static/dist/index.html` 存在时，`/` 和 `/login` 返回 Vue 页面；
 - 没有构建产物时，回退到单文件 `static/login.html`；
-- 背景图加载完成前只显示加载圈；加载失败或超过 8 秒才显示登录卡片。
-
-> 移动端使用底部半屏抽屉，键盘弹起时抽屉整体抬到键盘上方并限制高度；保留清晰壁纸。密码框仍为 `type="password"`，并附带各密码管理器的忽略属性。
+- 当前登录页为居中卡片 + 清晰壁纸 + TaskOps 风格加载页；
+- 密码使用页面内自定义安全键盘，不调用原生输入框，支持光标定位、粘贴、双击全选和横向滚动。
 
 ## NPM（Nginx Proxy Manager）配置
 

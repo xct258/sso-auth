@@ -2,24 +2,27 @@ services:
   sso-auth:
     container_name: sso-auth
     image: xct258/sso-auth:latest
-    build: .
+    # 模板默认 host 网络：直接占用宿主机 8290
     network_mode: host
     restart: unless-stopped
+    # 多进程容器用 tini 回收孤儿进程
     init: true
+    # 服务停止超时（代码在 startup/services.sh 里也有声明）
+    stop_grace_period: 15s
+    volumes:
+      # 启动脚本会把应用和前端同步到 /data；日志也在这里
+      - ./data:/data
     environment:
-      # 访问密码：留空 = 不启用登录（不建议）
+      - LOG_BASE_DIR=/data/logs
+      - SERVICE_PORT=${UVICORN_PORT:-8290}
+      # 统一登录配置
       - APP_PASSWORD=${APP_PASSWORD:-}
-      # 会话签名密钥：必须与 push-server、TaskOps 的 APP_SECRET 完全一致
       - APP_SECRET=${APP_SECRET:-}
       - SSO_SESSION_DAYS=${SSO_SESSION_DAYS:-7}
-      # 跨子域 SSO 的关键：Cookie 写到父域
       - SSO_COOKIE_DOMAIN=${SSO_COOKIE_DOMAIN:-}
       - SSO_COOKIE_NAME=${SSO_COOKIE_NAME:-sso_session}
-      # 本服务对外地址，例如 https://auth.o1-1.xct258.top/login
       - SSO_LOGIN_URL=${SSO_LOGIN_URL:-}
-      # 允许登录后跳转的域名后缀，防止开放重定向
       - SSO_ALLOWED_REDIRECT_SUFFIX=${SSO_ALLOWED_REDIRECT_SUFFIX:-}
-      # 登录中心自己的主机名，防止 next 跳回自己形成循环
       - SSO_PUBLIC_HOST=${SSO_PUBLIC_HOST:-}
       - SSO_DEFAULT_REDIRECT=${SSO_DEFAULT_REDIRECT:-}
       - SSO_SITE_NAME=${SSO_SITE_NAME:-统一登录}
