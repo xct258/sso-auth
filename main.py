@@ -1468,18 +1468,11 @@ def admin_overview(request: Request):
             "SELECT COUNT(*) AS n FROM audit_logs WHERE action = 'login.success' AND created_at LIKE ?",
             (f"{today}%",),
         ).fetchone()["n"]
-        recent = conn.execute(
-            """
-            SELECT actor, action, target, detail, created_at
-            FROM audit_logs ORDER BY id DESC LIMIT 12
-            """
-        ).fetchall()
     return {
         "domains": domains,
         "services": services,
         "enabled_services": enabled,
         "today_logins": logins,
-        "recent": [dict(row) for row in recent],
     }
 
 

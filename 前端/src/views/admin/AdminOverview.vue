@@ -9,24 +9,13 @@ const data = ref({
   services: 0,
   enabled_services: 0,
   today_logins: 0,
-  recent: [],
 })
-const loading = ref(true)
-
-function formatTime(value) {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString()
-}
 
 onMounted(async () => {
   try {
     data.value = await api('/api/admin/overview')
   } catch (err) {
     notify(err?.message || '加载失败', 'error')
-  } finally {
-    loading.value = false
   }
 })
 </script>
@@ -36,8 +25,11 @@ onMounted(async () => {
     <header class="admin-page-head">
       <div>
         <h1>概览</h1>
-        <p>域名、服务与最近登录情况</p>
+        <p>域名、服务与今日登录情况</p>
       </div>
+      <router-link to="/admin/audit" class="admin-btn ghost">
+        查看审计日志
+      </router-link>
     </header>
 
     <section class="stat-grid">
@@ -59,25 +51,14 @@ onMounted(async () => {
       </div>
     </section>
 
-    <section class="admin-card">
-      <header class="admin-card-head">
-        <h2>最近动态</h2>
-      </header>
-      <p v-if="loading" class="admin-muted">加载中…</p>
-      <div v-else-if="!data.recent.length" class="admin-empty">还没有记录</div>
-      <div v-else class="recent-list">
-        <div
-          v-for="item in data.recent"
-          :key="item.created_at + item.action + item.target"
-          class="recent-item"
-        >
-          <div class="recent-main">
-            <code>{{ item.action }}</code>
-            <span>{{ item.target || item.detail || '-' }}</span>
-          </div>
-          <time>{{ formatTime(item.created_at) }}</time>
-        </div>
+    <section class="admin-card overview-note">
+      <div>
+        <h2>操作记录</h2>
+        <p>登录、密码、密钥和服务变更记录统一放在审计日志中查看。</p>
       </div>
+      <router-link to="/admin/audit" class="admin-btn primary">
+        打开审计日志
+      </router-link>
     </section>
   </div>
 </template>
