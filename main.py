@@ -45,6 +45,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import html
 import logging
 import os
 import re
@@ -463,7 +464,7 @@ def get_service(slug: str) -> dict[str, Any] | None:
 def require_service(slug: str) -> dict[str, Any]:
     service = get_service(slug)
     if not service:
-        raise HTTPException(status_code=404, detail="服务不存在")
+        raise HTTPException(status_code=404, detail="服务不存在或已被删除")
     if not service["enabled"] or not service["domain_enabled"]:
         raise HTTPException(status_code=403, detail="服务已停用")
     return service
@@ -604,6 +605,75 @@ def rate_clear(key: str) -> None:
 # ============================================================
 # 页面
 # ============================================================
+def html_error(title: str, message: str, status_code: int = 400) -> HTMLResponse:
+    body = f"""<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{html.escape(title)} · 统一登录</title>
+    <style>
+      :root {{ color-scheme: dark; }}
+      * {{ box-sizing: border-box; }}
+      body {{
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0b1120 55%);
+        color: #e6ecf5;
+        font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+      }}
+      main {{
+        width: 100%;
+        max-width: 460px;
+        padding: 32px 30px;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 20px;
+        background: rgba(9,14,28,.86);
+        box-shadow: 0 24px 80px rgba(0,0,0,.35);
+      }}
+      .icon {{
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        border-radius: 14px;
+        background: rgba(244,63,94,.14);
+        color: #fda4af;
+        font-size: 24px;
+        font-weight: 700;
+      }}
+      h1 {{ margin: 18px 0 10px; font-size: 22px; }}
+      p {{ margin: 0; color: #a8b3c7; font-size: 14px; line-height: 1.8; white-space: pre-line; }}
+      .foot {{ margin-top: 22px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); font-size: 12px; }}
+      a {{ color: #a5b4fc; text-decoration: none; }}
+      a:hover {{ text-decoration: underline; }}
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="icon" aria-hidden="true">!</div>
+      <h1>{html.escape(title)}</h1>
+      <p>{html.escape(message)}</p>
+      <p class="foot"><a href="/admin/login">管理员入口</a></p>
+    </main>
+  </body>
+</html>
+"""
+    return HTMLResponse(
+        body,
+        status_code=status_code,
+        headers={
+            "Cache-Control": "no-store",
+            "X-Frame-Options": "DENY",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+        },
+    )
+
+
 def index_response() -> FileResponse:
     path = DIST_INDEX if os.path.isfile(DIST_INDEX) else LOGIN_PAGE
     return FileResponse(
@@ -627,13 +697,31 @@ def root_page(request: Request):
 
 @app.get("/login", include_in_schema=False)
 def login_page(request: Request, service: str = "", next: str = ""):
-    svc = get_service(service)
-    if not svc:
-        return HTMLResponse(
-            "<h1>缺少 service 参数</h1><p>请从需要登录的服务跳转过来。</p>",
+    service = (service or "").strip()
+    if not service:
+        return html_error(
+            "缺少服务参数",
+            "请从需要登录的服务页面进入。\n"
+            "如果是从旧书签直接打开，请联系管理员获取正确的登录链接。",
             status_code=400,
         )
-    if svc["enabled"] and svc["domain_enabled"] and service_authenticated(request, svc):
+
+    svc = get_service(service)
+    if not svc:
+        return html_error(
+            "服务不存在",
+            f"服务“{service}”未在统一登录中心注册，可能已被删除。\n"
+            "请联系管理员重新添加该服务。",
+            status_code=404,
+        )
+    if not svc["enabled"] or not svc["domain_enabled"]:
+        return html_error(
+            "服务已停用",
+            f"服务“{svc['name']}”当前已停用。\n请联系管理员。",
+            status_code=403,
+        )
+
+    if service_authenticated(request, svc):
         target = safe_next(next, request, svc)
         if target:
             return RedirectResponse(target, status_code=302)
@@ -751,7 +839,7 @@ def service_state(slug: str):
     """给业务服务读取当前 Token 版本；用于强制下线即时生效。"""
     svc = get_service(slug)
     if not svc:
-        raise HTTPException(status_code=404, detail="服务不存在")
+        raise HTTPException(status_code=404, detail="服务不存在或已被删除")
     return {
         "service": svc["slug"],
         "enabled": bool(svc["enabled"] and svc["domain_enabled"]),
@@ -1127,7 +1215,7 @@ def service_row(service_id: int) -> dict[str, Any]:
             (service_id,),
         ).fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="服务不存在")
+            raise HTTPException(status_code=404, detail="服务不存在或已被删除")
         return dict(row)
 
 
@@ -1284,7 +1372,7 @@ def delete_service(service_id: int, request: Request):
     with db_conn() as conn:
         cur = conn.execute("DELETE FROM services WHERE id = ?", (service_id,))
         if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="服务不存在")
+            raise HTTPException(status_code=404, detail="服务不存在或已被删除")
     audit(
         actor=admin["username"],
         action="service.delete",
