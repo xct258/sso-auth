@@ -25,6 +25,7 @@ export const wallpaperTheme = reactive({
 let seq = 0
 let timer = 0
 let objectUrl = ''
+let loadedUrl = ''
 
 function revoke(url) {
   if (url && url.startsWith('blob:')) URL.revokeObjectURL(url)
@@ -99,9 +100,15 @@ export async function loadWallpaper(url) {
 
   if (!url) {
     // 没有配置壁纸不是加载失败，直接显示纯色背景和登录卡片。
+    loadedUrl = ''
     wallpaperReady.value = true
     wallpaperFailed.value = false
     wallpaperProgress.phase = 'ready'
+    return
+  }
+
+  // 同一张壁纸已经加载完成时直接复用，避免登录页 → 后台重复请求。
+  if (wallpaperReady.value && !wallpaperFailed.value && url === loadedUrl) {
     return
   }
 
@@ -168,6 +175,7 @@ export async function loadWallpaper(url) {
     wallpaperProgress.known = true
     wallpaperProgress.percent = 100
     wallpaperProgress.phase = 'ready'
+    loadedUrl = url
 
     // 等图片真正绘制到背景层后，再撤掉加载页。
     await nextPaint()
@@ -191,6 +199,7 @@ export async function loadWallpaper(url) {
       wallpaperSrc.value = url
       wallpaperProgress.percent = 100
       wallpaperProgress.phase = 'ready'
+      loadedUrl = url
 
       await nextPaint()
       if (attempt !== seq) return
