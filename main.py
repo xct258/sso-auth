@@ -1062,52 +1062,6 @@ def list_domains(request: Request):
         return [dict(row) for row in rows]
 
 
-@app.post("/api/admin/domains")
-def create_domain(payload: DomainPayload, request: Request):
-    admin = require_admin(request, csrf=True)
-    name = payload.name.strip()
-    auth_host = payload.auth_host.strip().lower()
-    if not name or not auth_host:
-        raise HTTPException(status_code=400, detail="名称和登录主机名必填")
-    cookie_domain = payload.cookie_domain.strip()
-    allowed_suffix = payload.allowed_suffix.strip() or cookie_domain
-    now = now_iso()
-    try:
-        with db_conn() as conn:
-            cur = conn.execute(
-                """
-                INSERT INTO domains
-                  (name, auth_host, cookie_domain, allowed_suffix, site_name,
-                   wallpaper_url, enabled, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    name,
-                    auth_host,
-                    cookie_domain,
-                    allowed_suffix,
-                    payload.site_name.strip() or "统一登录",
-                    payload.wallpaper_url.strip(),
-                    1 if payload.enabled else 0,
-                    now,
-                    now,
-                ),
-            )
-            domain_id = cur.lastrowid
-    except sqlite3.IntegrityError as exc:
-        raise HTTPException(status_code=409, detail="登录主机名已存在") from exc
-    audit(
-        actor=admin["username"],
-        action="domain.create",
-        target=str(domain_id),
-        detail=auth_host,
-        request=request,
-    )
-    with db_conn() as conn:
-        row = conn.execute("SELECT * FROM domains WHERE id = ?", (domain_id,)).fetchone()
-        return dict(row)
-
-
 @app.put("/api/admin/domains/{domain_id}")
 def update_domain(domain_id: int, payload: DomainPayload, request: Request):
     admin = require_admin(request, csrf=True)
@@ -1153,27 +1107,6 @@ def update_domain(domain_id: int, payload: DomainPayload, request: Request):
     with db_conn() as conn:
         row = conn.execute("SELECT * FROM domains WHERE id = ?", (domain_id,)).fetchone()
         return dict(row)
-
-
-@app.delete("/api/admin/domains/{domain_id}")
-def delete_domain(domain_id: int, request: Request):
-    admin = require_admin(request, csrf=True)
-    with db_conn() as conn:
-        count = conn.execute(
-            "SELECT COUNT(*) AS n FROM services WHERE domain_id = ?", (domain_id,)
-        ).fetchone()["n"]
-        if count:
-            raise HTTPException(status_code=409, detail="该域名下还有服务，不能删除")
-        cur = conn.execute("DELETE FROM domains WHERE id = ?", (domain_id,))
-        if cur.rowcount == 0:
-            raise HTTPException(status_code=404, detail="域名不存在")
-    audit(
-        actor=admin["username"],
-        action="domain.delete",
-        target=str(domain_id),
-        request=request,
-    )
-    return {"ok": True}
 
 
 # ============================================================

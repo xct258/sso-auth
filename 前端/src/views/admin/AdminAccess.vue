@@ -241,14 +241,6 @@ async function showConfig(item) {
   }
 }
 
-function openCreateDomain() {
-  resetDomainForm()
-  showDomainForm.value = true
-  showServiceForm.value = false
-  error.value = ''
-  notice.value = ''
-}
-
 function openEditDomain(item) {
   Object.assign(domainForm, {
     name: item.name,
@@ -267,43 +259,23 @@ function openEditDomain(item) {
 }
 
 async function saveDomain() {
+  if (!editingDomain.value) return
   savingDomain.value = true
   error.value = ''
   notice.value = ''
   try {
-    let saved
-    if (editingDomain.value) {
-      saved = await api(`/api/admin/domains/${editingDomain.value.id}`, {
-        method: 'PUT',
-        body: JSON.stringify(domainForm),
-      })
-      notice.value = '域名已更新'
-    } else {
-      saved = await api('/api/admin/domains', {
-        method: 'POST',
-        body: JSON.stringify(domainForm),
-      })
-      notice.value = '域名已添加'
-    }
+    await api(`/api/admin/domains/${editingDomain.value.id}`, {
+      method: 'PUT',
+      body: JSON.stringify(domainForm),
+    })
+    notice.value = '登录域名已更新'
     showDomainForm.value = false
     resetDomainForm()
     await load()
-    if (saved?.id) selectedDomainId.value = saved.id
   } catch (err) {
     error.value = err?.message || '保存失败'
   } finally {
     savingDomain.value = false
-  }
-}
-
-async function removeDomain(item) {
-  if (!window.confirm(`删除域名 ${item.auth_host}？`)) return
-  try {
-    await api(`/api/admin/domains/${item.id}`, { method: 'DELETE' })
-    notice.value = '域名已删除'
-    await load()
-  } catch (err) {
-    error.value = err?.message || '删除失败'
   }
 }
 
@@ -327,9 +299,6 @@ onMounted(load)
         <p>登录域名、服务密码和接入配置</p>
       </div>
       <div class="row-actions">
-        <button class="admin-btn ghost" type="button" @click="openCreateDomain">
-          添加域名
-        </button>
         <button class="admin-btn primary" type="button" @click="openCreateService">
           添加服务
         </button>
@@ -350,25 +319,8 @@ onMounted(load)
           </p>
         </div>
         <div class="row-actions">
-          <select
-            v-if="domains.length > 1"
-            v-model.number="selectedDomainId"
-            class="admin-select"
-          >
-            <option v-for="domain in domains" :key="domain.id" :value="domain.id">
-              {{ domain.name }} · {{ domain.auth_host }}
-            </option>
-          </select>
           <button class="admin-btn ghost" type="button" @click="openEditDomain(selectedDomain)">
-            编辑域名
-          </button>
-          <button
-            v-if="selectedDomain.service_count === 0"
-            class="admin-btn danger"
-            type="button"
-            @click="removeDomain(selectedDomain)"
-          >
-            删除域名
+            登录域名设置
           </button>
         </div>
       </div>
@@ -382,7 +334,7 @@ onMounted(load)
 
     <section v-if="showDomainForm" class="admin-card">
       <header class="admin-card-head">
-        <h2>{{ editingDomain ? '编辑登录域名' : '添加登录域名' }}</h2>
+        <h2>登录域名设置</h2>
         <button class="admin-btn ghost" type="button" @click="showDomainForm = false">
           取消
         </button>
@@ -434,11 +386,10 @@ onMounted(load)
       <form class="admin-form" @submit.prevent="saveService">
         <label>
           所属域名
-          <select v-model.number="serviceForm.domain_id" disabled>
-            <option v-for="domain in domains" :key="domain.id" :value="domain.id">
-              {{ domain.name }} · {{ domain.auth_host }}
-            </option>
-          </select>
+          <input
+            :value="selectedDomain ? `${selectedDomain.name} · ${selectedDomain.auth_host}` : ''"
+            disabled
+          />
         </label>
         <label>
           服务名称

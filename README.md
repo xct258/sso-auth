@@ -179,22 +179,24 @@ SSO_ALLOWED_REDIRECT_SUFFIX=.xct258.top
 
 登录 `https://auth.xct258.top/admin` 只需要**管理密码**，不需要输入用户名。管理员用户名仅用于初始化数据库。
 
-登录后进入「接入管理」，一个页面同时管理登录域名和服务：
+登录后进入「接入管理」，一个页面同时管理登录域名和服务。
 
 ### 登录域名
 
-- 当前登录域名卡片：`auth.xct258.top` / `.xct258.top`
-- 编辑登录主机名、Cookie 父域、允许跳转后缀
-- 配置登录页标题和壁纸
-- 有多个父域时，用顶部下拉切换
+当前界面固定为单域名：
 
-新增域名时：
+```text
+xct258
+auth.xct258.top
+.xct258.top
+```
 
-1. DNS 添加 `auth.<新域名>`
-2. NPM 添加 Proxy Host 指向 `127.0.0.1:8290`
-3. 申请 HTTPS 证书
-4. 管理界面添加域名记录
-5. 该域名下的服务使用新的 `SSO_LOGIN_URL`
+- 只保留「登录域名设置」
+- 可以修改登录主机名、Cookie 父域、允许跳转后缀
+- 可以修改登录页标题和壁纸
+- 不提供「添加域名」「删除域名」和域名下拉
+
+初始域名来自 `.env` 的 `AUTH_*`，数据库已有域名时以数据库为准。
 
 ### 服务
 
@@ -390,31 +392,17 @@ TaskOps 调 auth-server 验签
 
 登录 push-server 不会产生 `sso_taskops`，因此不会登录 TaskOps。
 
-## 增加其他父域
+## 单域名说明
 
-当前只使用 `xct258.top`。如果要接入完全不同的父域，例如 `example.com`：
+当前只维护 `xct258.top` 一个父域，管理界面不提供新增/删除域名。
 
-1. DNS 添加 `auth.example.com`
-2. NPM 添加 Proxy Host 指向 `127.0.0.1:8290`
-3. 申请 `auth.example.com` 的 HTTPS 证书
-4. 管理界面「接入管理」→「添加域名」：
+这样做的原因：
 
-```text
-名称:           example
-登录主机:       auth.example.com
-Cookie 父域:    .example.com
-允许跳转后缀:   .example.com
-```
+- 所有服务都在 `*.xct258.top` 下
+- 一个 Cookie 父域 `.xct258.top` 已经覆盖全部服务
+- 减少管理界面复杂度
 
-5. 该域名下的服务使用：
-
-```dotenv
-SSO_LOGIN_URL=https://auth.example.com/login
-SSO_COOKIE_DOMAIN=.example.com
-SSO_VERIFY_URL=https://auth.example.com/api/auth/verify
-```
-
-不同父域之间 Cookie 不共享，所以用户在不同父域下需要分别登录。这是浏览器 Cookie 的限制，不是系统缺陷。
+如果以后确实需要接入另一个完全不同的父域，例如 `example.com`，需要重新增加域名管理能力，而不是在当前界面直接操作。
 
 ## NPM 与 auth-server 不在同一台机器
 
