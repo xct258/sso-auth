@@ -61,6 +61,8 @@ docker compose up -d
 curl http://127.0.0.1:8290/api/health
 ```
 
+> auth-server 默认只监听 `127.0.0.1:8290`，适合 NPM 和 auth-server 在同一台机器。对外只通过 NPM 的 HTTPS 域名访问，不要直接暴露 8290。
+
 第一次启动会：
 
 1. 创建 SQLite：`/data/auth.db`
@@ -95,7 +97,7 @@ AUTH_DB_PATH=/tmp/auth.db \
 AUTH_KEY_PATH=/tmp/auth.key \
 ADMIN_USERNAME=admin \
 ADMIN_PASSWORD=admin12345 \
-uvicorn main:app --host 0.0.0.0 --port 8290
+uvicorn main:app --host 127.0.0.1 --port 8290
 ```
 
 ## 环境变量

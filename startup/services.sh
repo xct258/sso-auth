@@ -10,7 +10,7 @@ SERVICE_STOP_TIMEOUT=([api]=15)
 start_api() {
     run_service api uvicorn main:app \
         --app-dir /data \
-        --host 0.0.0.0 \
+        --host "${UVICORN_HOST:-127.0.0.1}" \
         --port "${UVICORN_PORT:-8290}"
 }
 stop_api() { :; }
