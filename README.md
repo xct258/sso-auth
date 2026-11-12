@@ -268,6 +268,37 @@ location @sso_login {
 
 带自己 Basic Auth 的服务（例如 opencode），在 SSO 通过后再注入它自己的 `Authorization` 头。
 
+## 两种验签模式
+
+### 本地验签
+
+业务服务自己保存 `SERVICE_SECRET`，用 `auth.py` 验证 Token 签名。优点是没有额外请求；缺点是强制下线需要服务查询 auth-server 的 Token 版本。
+
+模板：[`examples/sso-service/auth.py`](examples/sso-service/auth.py)
+
+### 集中验签
+
+业务服务不保存 `SERVICE_SECRET`，每个受保护请求带着 Cookie 调用：
+
+```text
+GET http://127.0.0.1:8290/api/auth/verify?service=<服务ID>
+```
+
+auth-server 返回 `204` 放行，`401` 拒绝。
+
+服务只需要：
+
+```dotenv
+SERVICE_ID=taskops
+SSO_COOKIE_NAME=sso_taskops
+SSO_LOGIN_URL=https://auth.xct258.top/login
+SSO_VERIFY_URL=http://127.0.0.1:8290/api/auth/verify
+```
+
+当前 `push-server`、`web-TaskOps` 使用集中验签，所以它们的 `.env` 里没有 `SERVICE_SECRET`。
+
+代价：每个受保护请求多一次本机 auth-server 调用；auth-server 不可用时，这些服务会拒绝登录。
+
 ## Token 与 Cookie
 
 每个服务独立签名：
