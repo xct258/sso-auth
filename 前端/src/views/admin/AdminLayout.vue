@@ -31,8 +31,7 @@ async function logout() {
 
       <nav class="admin-nav">
         <router-link to="/admin" exact-active-class="active">概览</router-link>
-        <router-link to="/admin/services" active-class="active">服务管理</router-link>
-        <router-link to="/admin/domains" active-class="active">域名管理</router-link>
+        <router-link to="/admin/access" active-class="active">接入管理</router-link>
         <router-link to="/admin/audit" active-class="active">审计日志</router-link>
         <router-link to="/admin/settings" active-class="active">系统设置</router-link>
       </nav>

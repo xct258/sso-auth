@@ -854,3 +854,59 @@ body.admin-mode #app {
     flex-direction: column;
   }
 }
+
+.access-domain {
+  padding: 18px 20px;
+}
+
+.access-domain-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.access-domain h2 {
+  margin: 5px 0 8px;
+  font-size: 20px;
+}
+
+.access-domain-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.access-domain-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-card-head .admin-muted {
+  padding: 0;
+}
+
+@media (max-width: 760px) {
+  .access-domain-main {
+    flex-direction: column;
+  }
+}
+
+.row-actions {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 860px) {
+  .admin-table {
+    min-width: 760px;
+  }
+}

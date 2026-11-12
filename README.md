@@ -104,9 +104,9 @@ uvicorn main:app --host 0.0.0.0 --port 8290
 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
-| `AUTH_DOMAIN_NAME` | `o1-1` | 初始域名名称 |
+| `AUTH_DOMAIN_NAME` | `xct258` | 初始域名名称 |
 | `AUTH_HOST` | `auth.xct258.top` | 初始登录主机名 |
-| `AUTH_COOKIE_DOMAIN` | `.o1-1.xct258.top` | 初始 Cookie 父域；本地调试可留空 |
+| `AUTH_COOKIE_DOMAIN` | `.xct258.top` | 初始 Cookie 父域；本地调试可留空 |
 | `AUTH_ALLOWED_SUFFIX` | 同 Cookie 父域 | 允许 `next` 跳转的后缀 |
 | `AUTH_SITE_NAME` | `统一登录` | 登录页标题 |
 | `AUTH_WALLPAPER_URL` | 随机壁纸 | 登录页壁纸 |
@@ -139,13 +139,14 @@ SSO_ALLOWED_REDIRECT_SUFFIX=.xct258.top
 
 登录 `https://auth.xct258.top/admin` 只需要**管理密码**，不需要输入用户名。管理员用户名仅用于初始化数据库。
 
-登录后可以：
+登录后进入「接入管理」，一个页面同时管理登录域名和服务：
 
-### 域名管理
+### 登录域名
 
-- 添加 / 编辑 / 停用域名
-- 配置登录主机名、Cookie 父域、允许跳转后缀
+- 当前登录域名卡片：`auth.xct258.top` / `.xct258.top`
+- 编辑登录主机名、Cookie 父域、允许跳转后缀
 - 配置登录页标题和壁纸
+- 有多个父域时，用顶部下拉切换
 
 新增域名时：
 
@@ -155,7 +156,7 @@ SSO_ALLOWED_REDIRECT_SUFFIX=.xct258.top
 4. 管理界面添加域名记录
 5. 该域名下的服务使用新的 `SSO_LOGIN_URL`
 
-### 服务管理
+### 服务
 
 - 添加 / 编辑 / 停用 / 删除服务
 - 自动生成独立密码、Cookie 名、签名密钥
@@ -174,7 +175,7 @@ SSO_ALLOWED_REDIRECT_SUFFIX=.xct258.top
 填写：
 
 ```text
-所属域名:   o1-1
+所属域名:   xct258
 服务名称:   TaskOps
 服务 ID:    taskops
 公开地址:   https://2-cfyx.o1-1.xct258.top
@@ -307,7 +308,7 @@ signature = HMAC-SHA256(
   ↓ 输入 TaskOps 自己的密码
 校验 taskops 的 password_hash
   ↓ 成功
-Set-Cookie: sso_taskops=...; Domain=.o1-1.xct258.top; HttpOnly
+Set-Cookie: sso_taskops=...; Domain=.xct258.top; HttpOnly
   ↓
 302 回 TaskOps
   ↓

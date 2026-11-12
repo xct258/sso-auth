@@ -5,8 +5,7 @@ import LoginView from '@/views/LoginView.vue'
 import AdminLoginView from '@/views/AdminLoginView.vue'
 import AdminLayout from '@/views/admin/AdminLayout.vue'
 import AdminOverview from '@/views/admin/AdminOverview.vue'
-import AdminServices from '@/views/admin/AdminServices.vue'
-import AdminDomains from '@/views/admin/AdminDomains.vue'
+import AdminAccess from '@/views/admin/AdminAccess.vue'
 import AdminAudit from '@/views/admin/AdminAudit.vue'
 import AdminSettings from '@/views/admin/AdminSettings.vue'
 
@@ -22,8 +21,9 @@ const router = createRouter({
       meta: { admin: true },
       children: [
         { path: '', name: 'admin-overview', component: AdminOverview },
-        { path: 'services', name: 'admin-services', component: AdminServices },
-        { path: 'domains', name: 'admin-domains', component: AdminDomains },
+        { path: 'access', name: 'admin-access', component: AdminAccess },
+        { path: 'services', redirect: '/admin/access' },
+        { path: 'domains', redirect: '/admin/access' },
         { path: 'audit', name: 'admin-audit', component: AdminAudit },
         { path: 'settings', name: 'admin-settings', component: AdminSettings },
       ],
