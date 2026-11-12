@@ -71,7 +71,6 @@ onMounted(async () => {
           <thead>
             <tr>
               <th>时间</th>
-              <th>操作者</th>
               <th>动作</th>
               <th>对象</th>
             </tr>
@@ -79,12 +78,11 @@ onMounted(async () => {
           <tbody>
             <tr v-for="item in data.recent" :key="item.created_at + item.action + item.target">
               <td>{{ formatTime(item.created_at) }}</td>
-              <td>{{ item.actor || '-' }}</td>
               <td><code>{{ item.action }}</code></td>
               <td>{{ item.target || item.detail || '-' }}</td>
             </tr>
             <tr v-if="!data.recent.length">
-              <td colspan="4" class="admin-empty">还没有记录</td>
+              <td colspan="3" class="admin-empty">还没有记录</td>
             </tr>
           </tbody>
         </table>
