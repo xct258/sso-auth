@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { api } from '@/api/admin'
 
 const domains = ref([])
@@ -20,6 +21,20 @@ const secretInfo = ref(null)
 const configInfo = ref(null)
 const toast = ref(null)
 let toastTimer = 0
+const confirmOpen = ref(false)
+const confirmData = ref(null)
+
+function askConfirm(data) {
+  confirmData.value = data
+  confirmOpen.value = true
+}
+
+async function runConfirm() {
+  const action = confirmData.value?.action
+  confirmOpen.value = false
+  if (action) await action()
+  confirmData.value = null
+}
 
 function notify(message, type = 'success') {
   toast.value = { message, type }
@@ -60,6 +75,17 @@ const selectedDomain = computed(
 const domainServices = computed(() =>
   services.value.filter((item) => item.domain_id === selectedDomainId.value),
 )
+const serviceQuery = ref('')
+const filteredServices = computed(() => {
+  const query = serviceQuery.value.trim().toLowerCase()
+  if (!query) return domainServices.value
+  return domainServices.value.filter((item) =>
+    [item.name, item.slug, item.auth_mode, item.cookie_name]
+      .join(' ')
+      .toLowerCase()
+      .includes(query),
+  )
+})
 
 function formatTime(value) {
   if (!value) return '-'
@@ -201,18 +227,24 @@ async function saveService() {
   }
 }
 
-async function resetPassword(item) {
-  if (!window.confirm(`重置 ${item.name} 的登录密码？`)) return
-  try {
-    const data = await api(`/api/admin/services/${item.id}/reset-password`, {
-      method: 'POST',
-      body: JSON.stringify({}),
-    })
-    secretInfo.value = { title: '密码已重置', password: data.password }
-    await load()
-  } catch (err) {
-    error.value = err?.message || '重置失败'
-  }
+function resetPassword(item) {
+  askConfirm({
+    title: '重置登录密码',
+    message: `确定重置 ${item.name} 的登录密码？旧密码会立即失效。`,
+    confirmText: '重置',
+    action: async () => {
+      try {
+        const data = await api(`/api/admin/services/${item.id}/reset-password`, {
+          method: 'POST',
+          body: JSON.stringify({}),
+        })
+        secretInfo.value = { title: '密码已重置', password: data.password }
+        await load()
+      } catch (err) {
+        error.value = err?.message || '重置失败'
+      }
+    },
+  })
 }
 
 async function viewPassword(item) {
@@ -229,26 +261,39 @@ async function viewPassword(item) {
   }
 }
 
-async function revoke(item) {
-  if (!window.confirm(`强制 ${item.name} 的所有用户下线？`)) return
-  try {
-    await api(`/api/admin/services/${item.id}/revoke`, { method: 'POST' })
-    notice.value = '已强制下线'
-    await load()
-  } catch (err) {
-    error.value = err?.message || '操作失败'
-  }
+function revoke(item) {
+  askConfirm({
+    title: '强制下线',
+    message: `强制 ${item.name} 的所有用户下线？用户下一次访问时需要重新登录。`,
+    confirmText: '下线',
+    action: async () => {
+      try {
+        await api(`/api/admin/services/${item.id}/revoke`, { method: 'POST' })
+        notice.value = '已强制下线'
+        await load()
+      } catch (err) {
+        error.value = err?.message || '操作失败'
+      }
+    },
+  })
 }
 
-async function removeService(item) {
-  if (!window.confirm(`删除服务 ${item.name}？`)) return
-  try {
-    await api(`/api/admin/services/${item.id}`, { method: 'DELETE' })
-    notice.value = '服务已删除'
-    await load()
-  } catch (err) {
-    error.value = err?.message || '删除失败'
-  }
+function removeService(item) {
+  askConfirm({
+    title: '删除服务',
+    message: `确定删除服务 ${item.name}？该服务的登录记录和配置会一起删除。`,
+    confirmText: '删除',
+    danger: true,
+    action: async () => {
+      try {
+        await api(`/api/admin/services/${item.id}`, { method: 'DELETE' })
+        notice.value = '服务已删除'
+        await load()
+      } catch (err) {
+        error.value = err?.message || '删除失败'
+      }
+    },
+  })
 }
 
 async function showConfig(item) {
@@ -505,15 +550,24 @@ onMounted(load)
     <section class="admin-card">
       <header class="admin-card-head">
         <h2>{{ selectedDomain ? `${selectedDomain.name} 的服务` : '服务' }}</h2>
-        <span class="admin-muted">{{ domainServices.length }} 个</span>
+        <div class="admin-card-tools">
+          <input
+            v-model="serviceQuery"
+            class="admin-search"
+            placeholder="搜索服务…"
+          />
+          <span class="admin-muted">
+            {{ filteredServices.length }} / {{ domainServices.length }}
+          </span>
+        </div>
       </header>
       <div v-if="loading" class="admin-empty">加载中…</div>
-      <div v-else-if="!domainServices.length" class="admin-empty">
-        这个域名下还没有服务
+      <div v-else-if="!filteredServices.length" class="admin-empty">
+        {{ domainServices.length ? '没有匹配的服务' : '这个域名下还没有服务' }}
       </div>
       <div v-else class="service-grid">
         <article
-          v-for="item in domainServices"
+          v-for="item in filteredServices"
           :key="item.id"
           :class="['service-card', { disabled: !item.enabled }]"
         >
@@ -630,6 +684,15 @@ onMounted(load)
         </template>
       </div>
     </div>
+
+    <ConfirmDialog
+      v-model="confirmOpen"
+      :title="confirmData?.title || '确认操作'"
+      :message="confirmData?.message || ''"
+      :confirm-text="confirmData?.confirmText || '确定'"
+      :danger="!!confirmData?.danger"
+      @confirm="runConfirm"
+    />
 
     <div v-if="toast" :class="['admin-toast', toast.type]">{{ toast.message }}</div>
   </div>
