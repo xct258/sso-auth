@@ -98,8 +98,10 @@ export async function loadWallpaper(url) {
   wallpaperTimedOut.value = false
 
   if (!url) {
-    wallpaperFailed.value = true
-    wallpaperProgress.phase = 'failed'
+    // 没有配置壁纸不是加载失败，直接显示纯色背景和登录卡片。
+    wallpaperReady.value = true
+    wallpaperFailed.value = false
+    wallpaperProgress.phase = 'ready'
     return
   }
 

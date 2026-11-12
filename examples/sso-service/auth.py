@@ -1,21 +1,23 @@
-"""通用 SSO 接入模板（FastAPI）。
+"""通用 SSO 接入模板（FastAPI，多服务版）。
 
-复制到新服务后只需要改三处：
+每个服务独立密码、Cookie、签名密钥；登录 A 不会登录 B。
 
-1. 环境变量（见同目录 .env.example）
+复制到新服务后：
+1. 在 auth-server 管理界面创建服务，拿到环境变量
 2. main.py 里注册中间件和路由：
        import auth
        app.add_middleware(auth.AuthMiddleware)
        app.include_router(auth.router)
-3. 按服务实际情况调整下面的 PUBLIC_* / API_* 常量
+3. 按服务调整 PUBLIC_* / API_* 常量
 
-鉴权规则：
-    - 未登录访问页面        -> 302 到 auth-server 的 /login?next=原地址
-    - 未登录访问 /api/*     -> 401 JSON，由前端跳登录中心
-    - 公开路径 / 静态资源    -> 直接放行
-    - Cookie 由 auth-server 写入父域，业务服务只验签，不需要请求 auth-server
-
-依赖：fastapi、starlette（FastAPI 自带）。
+环境变量：
+    AUTH_ENABLED             true/false；默认 true
+    SERVICE_ID               管理界面里的服务 ID，例如 taskops
+    SERVICE_SECRET           该服务自己的签名密钥
+    SERVICE_TOKEN_VERSION    该服务的 Token 版本，管理界面生成，默认 1
+    SSO_LOGIN_URL            登录页地址，例如 https://auth.o1-1.xct258.top/login
+    SSO_COOKIE_NAME          管理界面生成的 Cookie 名，例如 sso_taskops
+    SSO_COOKIE_DOMAIN        父域，例如 .o1-1.xct258.top
 """
 
 from __future__ import annotations
@@ -31,30 +33,24 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# ------------------------------------------------------------
-# 配置
-# ------------------------------------------------------------
-APP_SECRET = os.environ.get("APP_SECRET", "")
-COOKIE_NAME = os.environ.get("SSO_COOKIE_NAME", "sso_session")
+APP_SECRET = os.environ.get("SERVICE_SECRET", "")
+SERVICE_ID = os.environ.get("SERVICE_ID", "").strip()
+TOKEN_VERSION = os.environ.get("SERVICE_TOKEN_VERSION", "1").strip()
+COOKIE_NAME = os.environ.get("SSO_COOKIE_NAME", "").strip()
 COOKIE_DOMAIN = os.environ.get("SSO_COOKIE_DOMAIN", "").strip()
 SSO_LOGIN_URL = os.environ.get("SSO_LOGIN_URL", "").strip()
-AUTH_ENABLED_RAW = os.environ.get("AUTH_ENABLED", "").strip().lower()
+AUTH_ENABLED_RAW = os.environ.get("AUTH_ENABLED", "true").strip().lower()
 
-# 始终公开：登录状态、退出登录、健康检查。
 PUBLIC_PATHS = {
     "/api/auth/status",
     "/api/auth/logout",
     "/api/health",
 }
-# 需要按服务补充的公开 API（精确匹配），例如回调、Webhook。
 PUBLIC_API_PATHS: set[str] = set()
-# 需要按服务补充的公开 API 前缀，例如 ("/api/public/",)。
 PUBLIC_API_PREFIXES: tuple[str, ...] = ()
-# SPA 静态资源必须公开，否则未登录时页面脚本加载不出来。
 PUBLIC_STATIC_PATHS = {"/favicon.ico", "/favicon.svg"}
 PUBLIC_STATIC_PREFIXES = ("/assets/",)
 
-# 这些路径未登录时返回 401 JSON，而不是 302；按服务补充。
 API_PATHS: set[str] = set()
 API_PREFIXES = ("/api/",)
 
@@ -62,16 +58,12 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
 
 
-# ------------------------------------------------------------
-# 会话校验
-# ------------------------------------------------------------
 def auth_enabled() -> bool:
-    """AUTH_ENABLED 显式配置优先；未配置时只要配了 SSO_LOGIN_URL 就启用。"""
     if AUTH_ENABLED_RAW in ("1", "true", "yes", "on"):
         return True
     if AUTH_ENABLED_RAW in ("0", "false", "no", "off"):
         return False
-    return bool(SSO_LOGIN_URL)
+    return bool(SERVICE_ID and APP_SECRET and SSO_LOGIN_URL)
 
 
 def _secret() -> bytes:
@@ -83,16 +75,20 @@ def _sign(payload: str) -> str:
 
 
 def verify_token(token: str | None) -> bool:
-    """校验 auth-server 签发的会话：v1.<expires>.<hmac-sha256>。"""
-    if not APP_SECRET or not token:
+    """校验 auth-server 签发的服务 Token。"""
+    if not SERVICE_ID or not APP_SECRET or not token:
         return False
-    try:
-        version, expires, signature = token.split(".")
-    except ValueError:
+    parts = token.split(".")
+    if len(parts) != 5:
         return False
-    if version != "v1":
+    version, service_id, token_version, expires, signature = parts
+    if version != "v1" or service_id != SERVICE_ID:
         return False
-    if not hmac.compare_digest(signature, _sign(f"v1.{expires}")):
+    if token_version != TOKEN_VERSION:
+        return False
+    if not hmac.compare_digest(
+        signature, _sign(f"v1.{service_id}.{token_version}.{expires}")
+    ):
         return False
     try:
         return int(expires) > int(time.time())
@@ -104,11 +100,7 @@ def is_authenticated(request: Request) -> bool:
     return (not auth_enabled()) or verify_token(request.cookies.get(COOKIE_NAME))
 
 
-# ------------------------------------------------------------
-# 跳转
-# ------------------------------------------------------------
 def _original_url(request: Request) -> str:
-    """还原浏览器地址，兼容 NPM/nginx 的 X-Forwarded-*。"""
     proto = request.headers.get("x-forwarded-proto", "").split(",")[0].strip()
     proto = proto or request.url.scheme
     host = (
@@ -130,7 +122,8 @@ def redirect_to_login(request: Request) -> RedirectResponse | JSONResponse:
     target = _original_url(request)
     sep = "&" if "?" in SSO_LOGIN_URL else "?"
     return RedirectResponse(
-        f"{SSO_LOGIN_URL}{sep}next={quote(target, safe='')}",
+        f"{SSO_LOGIN_URL}{sep}service={quote(SERVICE_ID)}"
+        f"&next={quote(target, safe='')}",
         status_code=302,
     )
 
@@ -149,11 +142,8 @@ def _is_public(path: str) -> bool:
     )
 
 
-# ------------------------------------------------------------
-# 中间件
-# ------------------------------------------------------------
 class AuthMiddleware(BaseHTTPMiddleware):
-    """统一登录：页面跳登录中心，API 返回 401。"""
+    """未登录页面跳登录中心；/api/* 返回 401。"""
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -170,14 +160,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return redirect_to_login(request)
 
 
-# ------------------------------------------------------------
-# 状态 / 退出接口
-# ------------------------------------------------------------
 @router.get("/status")
 def auth_status(request: Request):
     return {
         "enabled": auth_enabled(),
         "authenticated": is_authenticated(request),
+        "service": SERVICE_ID,
         "login_url": SSO_LOGIN_URL,
     }
 
@@ -189,8 +177,8 @@ def auth_logout():
     return response
 
 
-if auth_enabled() and not APP_SECRET:
+if auth_enabled() and (not SERVICE_ID or not APP_SECRET or not COOKIE_NAME):
     logger.warning(
-        "已启用 SSO，但 APP_SECRET 为空：所有会话都会校验失败。"
-        "请配置与 auth-server 相同的 APP_SECRET。"
+        "已启用 SSO，但 SERVICE_ID / SERVICE_SECRET / SSO_COOKIE_NAME 有空值，"
+        "所有会话都会校验失败。"
     )

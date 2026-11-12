@@ -1,6 +1,6 @@
 # 新服务接入统一登录（模板）
 
-把本目录复制到新服务，按下面几步改：
+每个服务独立密码、Cookie、签名密钥；登录 A 不会登录 B。
 
 ```text
 examples/sso-service/
@@ -9,25 +9,55 @@ examples/sso-service/
   .env.example      # 新服务环境变量
 ```
 
-## 1. 环境变量
+## 1. 在管理界面创建服务
+
+打开：
+
+```text
+https://auth.o1-1.xct258.top/admin
+```
+
+进入「服务管理」→「添加服务」，填写：
+
+```text
+所属域名:   o1-1
+服务名称:   TaskOps
+服务 ID:    taskops
+公开地址:   https://2-cfyx.o1-1.xct258.top
+登录密码:   留空自动生成
+会话天数:   7
+```
+
+保存后复制：
+
+```text
+服务密码
+SERVICE_SECRET
+SERVICE_TOKEN_VERSION
+Cookie 名：sso_taskops
+```
+
+## 2. 环境变量
 
 ```bash
 cp .env.example .env
 ```
 
-至少确认：
+填入管理界面生成的值：
 
 ```dotenv
 AUTH_ENABLED=true
-APP_SECRET=与 auth-server 完全相同
+SERVICE_ID=taskops
+SERVICE_SECRET=...
+SERVICE_TOKEN_VERSION=1
 SSO_LOGIN_URL=https://auth.o1-1.xct258.top/login
-SSO_COOKIE_NAME=sso_session
+SSO_COOKIE_NAME=sso_taskops
 SSO_COOKIE_DOMAIN=.o1-1.xct258.top
 ```
 
-新服务不需要 `APP_PASSWORD`，密码只在 auth-server。
+新服务不需要 `APP_PASSWORD`。
 
-## 2. 后端接入（FastAPI）
+## 3. 后端接入（FastAPI）
 
 ```python
 import auth
@@ -36,21 +66,20 @@ app.add_middleware(auth.AuthMiddleware)
 app.include_router(auth.router)
 ```
 
-然后按新服务调整 `auth.py` 顶部的常量：
+按新服务调整 `auth.py` 顶部常量：
 
 ```python
-# 健康检查、登录状态、退出登录默认已包含
 PUBLIC_PATHS = {
     "/api/auth/status",
     "/api/auth/logout",
     "/api/health",
 }
 
-# 服务间回调 / Webhook 等不需要浏览器登录的接口
+# Webhook / 回调等公开接口
 PUBLIC_API_PATHS = {"/api/webhook"}
 
-# 未登录时返回 401 而不是 302 的路径
-API_PATHS = {"/records"}
+# 未登录返回 401 而不是 302 的路径
+API_PATHS = set()
 API_PREFIXES = ("/api/",)
 
 # 静态资源必须放行
@@ -58,60 +87,83 @@ PUBLIC_STATIC_PATHS = {"/favicon.ico", "/favicon.svg"}
 PUBLIC_STATIC_PREFIXES = ("/assets/",)
 ```
 
-接入后的行为：
+行为：
 
 ```text
-GET  /                 未登录 → 302 auth-server/login?next=...
-GET  /api/private      未登录 → 401 {"detail":"未登录或登录已过期"}
+GET  /                 未登录 → 302 /login?service=taskops&next=...
+GET  /api/private      未登录 → 401
 GET  /api/health       永远公开
 GET  /assets/app.js    永远公开
 ```
 
-## 3. 前端接入
+## 4. 前端接入
 
 ```js
 import { requireLogin, authFetch, logout } from './frontend-auth'
 
-// 应用启动时
 await requireLogin()
-
-// 所有需要登录的请求
 const res = await authFetch('/api/todos')
-
-// 退出
 await logout()
 ```
 
-如果不想用封装，至少处理 401：
+如果不用封装，至少处理 401：
 
 ```js
 if (res.status === 401) {
-  location.href = `${loginUrl}?next=${encodeURIComponent(location.href)}`
+  location.href = `${loginUrl}?service=taskops&next=${encodeURIComponent(location.href)}`
 }
 ```
 
-## 4. 非 Python 服务
-
-Cookie 格式固定为：
+## 5. Token 格式
 
 ```text
-sso_session = v1.<expires>.<signature>
+Cookie: sso_<服务ID>
 
-signature = hex( HMAC-SHA256(APP_SECRET, "v1." + expires) )
-expires   = Unix 秒级时间戳
+Token: v1.<service_id>.<token_version>.<expires>.<signature>
+
+signature = HMAC-SHA256(
+  SERVICE_SECRET,
+  "v1.<service_id>.<token_version>.<expires>"
+)
 ```
 
-校验步骤：
+校验：
 
-1. 按 `.` 拆成三段
-2. 第一段必须是 `v1`
-3. 用 `APP_SECRET` 对 `v1.<expires>` 做 HMAC-SHA256
-4. 常量时间比较签名
-5. `expires` 必须大于当前时间
+1. `service_id` 等于自己的 `SERVICE_ID`
+2. `token_version` 等于自己的 `SERVICE_TOKEN_VERSION`
+3. HMAC 签名正确
+4. 未过期
 
-Python 模板的 `verify_token()`、`_sign()` 就是完整实现，可以直接照抄。
+`auth.py` 已经实现，其他语言照抄逻辑即可。
 
-## 5. 验证
+## 6. NPM 无代码接入
+
+```nginx
+location = /_sso_auth {
+    internal;
+    proxy_pass http://127.0.0.1:8290/api/auth/verify?service=taskops;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+}
+
+location / {
+    auth_request /_sso_auth;
+    error_page 401 = @sso_login;
+    include conf.d/include/proxy.conf;
+}
+
+location @sso_login {
+    return 302 https://auth.o1-1.xct258.top/login?service=taskops&next=https://$host$request_uri;
+}
+```
+
+如果服务自带 Basic Auth，在 SSO 通过后追加：
+
+```nginx
+proxy_set_header Authorization "Basic <base64(user:password)>";
+```
+
+## 7. 验证
 
 ```bash
 # 未登录页面：302
@@ -127,19 +179,11 @@ curl -i http://127.0.0.1:9000/api/private
 curl -i -b /tmp/sso.jar http://127.0.0.1:9000/api/private
 ```
 
-浏览器完整流程：
+## 8. 注意
 
-1. 打开新服务 → 跳转 auth 登录页
-2. 登录成功 → 回到新服务
-3. 再打开 push-server / TaskOps → 不再要求登录
-4. 在任意服务退出 → 所有服务同时退出
-
-## 6. 注意
-
-- 新服务必须和 auth-server 在同一个父域下，Cookie 才能共享。
-- `APP_SECRET` 必须完全一致；不一致会表现为“登录后又跳回登录页”。
-- `SSO_COOKIE_DOMAIN` 要写成 `.父域`，前面有点。
-- 本机用 `127.0.0.1:端口` 调试时，`SSO_COOKIE_DOMAIN` 留空即可。
-- 生产必须 HTTPS，并让 NPM/nginx 传 `X-Forwarded-Proto: https`。
-- 业务服务只验签，不需要每次请求 auth-server。
+- 每个服务使用不同的 `SSO_COOKIE_NAME`，否则会互相覆盖。
+- `SERVICE_SECRET` 不能混用；不同服务必须不同。
+- 管理界面「强制下线」或「轮换密钥」后，需要把新的 `SERVICE_TOKEN_VERSION` / `SERVICE_SECRET` 更新到服务并重启。
+- NPM `auth_request` 模式不需要更新业务环境变量，强制下线立即生效。
+- 生产必须 HTTPS，并让 NPM 传 `X-Forwarded-Proto: https`。
 - Cookie 是 HttpOnly，前端读不到，登录状态只看 `/api/auth/status`。

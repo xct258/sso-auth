@@ -1,0 +1,50 @@
+<script setup>
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+
+import { adminLogout, adminStatus } from '@/api/admin'
+
+const router = useRouter()
+const username = ref('')
+
+onMounted(async () => {
+  const status = await adminStatus()
+  username.value = status.username || ''
+})
+
+async function logout() {
+  await adminLogout()
+  await router.replace('/admin/login')
+}
+</script>
+
+<template>
+  <div class="admin-shell">
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <span class="admin-brand-mark">S</span>
+        <div>
+          <strong>统一登录</strong>
+          <small>管理控制台</small>
+        </div>
+      </div>
+
+      <nav class="admin-nav">
+        <router-link to="/admin" exact-active-class="active">概览</router-link>
+        <router-link to="/admin/services" active-class="active">服务管理</router-link>
+        <router-link to="/admin/domains" active-class="active">域名管理</router-link>
+        <router-link to="/admin/audit" active-class="active">审计日志</router-link>
+        <router-link to="/admin/settings" active-class="active">系统设置</router-link>
+      </nav>
+
+      <div class="admin-user">
+        <span>{{ username || '管理员' }}</span>
+        <button type="button" @click="logout">退出</button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <router-view />
+    </main>
+  </div>
+</template>

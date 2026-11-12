@@ -10,21 +10,30 @@ services:
     # 服务停止超时（代码在 startup/services.sh 里也有声明）
     stop_grace_period: 15s
     volumes:
-      # 启动脚本会把应用和前端同步到 /data；日志也在这里
+      # SQLite、主密钥、日志都在 /data
       - ./data:/data
     environment:
       - LOG_BASE_DIR=/data/logs
       - SERVICE_PORT=${UVICORN_PORT:-8290}
-      # 统一登录配置
-      - APP_PASSWORD=${APP_PASSWORD:-}
-      - APP_SECRET=${APP_SECRET:-}
+
+      # 初始域名（仅第一次启动创建，之后在 /admin 管理）
+      - AUTH_DOMAIN_NAME=${AUTH_DOMAIN_NAME:-o1-1}
+      - AUTH_HOST=${AUTH_HOST:-auth.o1-1.xct258.top}
+      - AUTH_COOKIE_DOMAIN=${AUTH_COOKIE_DOMAIN:-.o1-1.xct258.top}
+      - AUTH_ALLOWED_SUFFIX=${AUTH_ALLOWED_SUFFIX:-.o1-1.xct258.top}
+      - AUTH_SITE_NAME=${AUTH_SITE_NAME:-统一登录}
+      - AUTH_WALLPAPER_URL=${AUTH_WALLPAPER_URL:-https://random-image.xct258.top/}
+
+      # 初始管理员（仅第一次启动创建）
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - ADMIN_SESSION_HOURS=${ADMIN_SESSION_HOURS:-12}
+
+      # 服务会话默认值与数据路径
       - SSO_SESSION_DAYS=${SSO_SESSION_DAYS:-7}
-      - SSO_COOKIE_DOMAIN=${SSO_COOKIE_DOMAIN:-}
-      - SSO_COOKIE_NAME=${SSO_COOKIE_NAME:-sso_session}
-      - SSO_LOGIN_URL=${SSO_LOGIN_URL:-}
-      - SSO_ALLOWED_REDIRECT_SUFFIX=${SSO_ALLOWED_REDIRECT_SUFFIX:-}
-      - SSO_PUBLIC_HOST=${SSO_PUBLIC_HOST:-}
-      - SSO_DEFAULT_REDIRECT=${SSO_DEFAULT_REDIRECT:-}
-      - SSO_SITE_NAME=${SSO_SITE_NAME:-统一登录}
-      - SSO_WALLPAPER_URL=${SSO_WALLPAPER_URL:-https://random-image.xct258.top/}
+      - AUTH_DATA_DIR=/data
+      - AUTH_DB_PATH=/data/auth.db
+      - AUTH_KEY_PATH=/data/.master_key
+      - AUTH_MASTER_KEY=${AUTH_MASTER_KEY:-}
+
       - UVICORN_PORT=${UVICORN_PORT:-8290}
