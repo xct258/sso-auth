@@ -23,6 +23,7 @@ https://auth.xct258.top/admin
 所属域名:   xct258
 服务名称:   TaskOps
 服务 ID:    taskops
+接入方式:   业务代码（auth.py）
 公开地址:   https://2-cfyx.o1-1.xct258.top
 登录密码:   留空自动生成
 会话天数:   7

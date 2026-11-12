@@ -257,6 +257,7 @@ CREATE TABLE IF NOT EXISTS services (
     session_days INTEGER NOT NULL DEFAULT 7,
     token_version INTEGER NOT NULL DEFAULT 1,
     enabled INTEGER NOT NULL DEFAULT 1,
+    auth_mode TEXT NOT NULL DEFAULT 'npm',
     notes TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -327,6 +328,10 @@ def init_db() -> None:
         if "basic_password_enc" not in columns:
             conn.execute(
                 "ALTER TABLE services ADD COLUMN basic_password_enc TEXT NOT NULL DEFAULT ''"
+            )
+        if "auth_mode" not in columns:
+            conn.execute(
+                "ALTER TABLE services ADD COLUMN auth_mode TEXT NOT NULL DEFAULT 'npm'"
             )
 
         if not conn.execute("SELECT 1 FROM domains LIMIT 1").fetchone():
@@ -1118,6 +1123,7 @@ class ServiceCreatePayload(BaseModel):
     slug: str = ""
     public_url: str = ""
     password: str = ""
+    auth_mode: str = ""
     basic_auth_enabled: bool = False
     basic_username: str = ""
     basic_password: str = ""
@@ -1129,6 +1135,7 @@ class ServiceCreatePayload(BaseModel):
 class ServiceUpdatePayload(BaseModel):
     name: str = ""
     public_url: str = ""
+    auth_mode: str = ""
     basic_auth_enabled: bool = False
     basic_username: str = ""
     basic_password: str = ""
@@ -1192,6 +1199,9 @@ def create_service(payload: ServiceCreatePayload, request: Request):
             detail="服务 ID 只能包含小写字母、数字、-、_，长度 2-41",
         )
     name = payload.name.strip() or slug
+    auth_mode = payload.auth_mode.strip().lower()
+    if auth_mode not in ("npm", "middleware"):
+        raise HTTPException(status_code=400, detail="请选择接入方式：NPM 或业务代码")
     with db_conn() as conn:
         domain = conn.execute(
             "SELECT * FROM domains WHERE id = ?", (payload.domain_id,)
@@ -1216,16 +1226,18 @@ def create_service(payload: ServiceCreatePayload, request: Request):
             cur = conn.execute(
                 """
                 INSERT INTO services
-                  (domain_id, name, slug, public_url, password_hash, password_enc,
-                   basic_username, basic_password_enc, secret_salt, cookie_name,
-                   session_days, token_version, enabled, notes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+                  (domain_id, name, slug, public_url, auth_mode, password_hash,
+                   password_enc, basic_username, basic_password_enc, secret_salt,
+                   cookie_name, session_days, token_version, enabled, notes,
+                   created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
                 """,
                 (
                     payload.domain_id,
                     name,
                     slug,
                     payload.public_url.strip(),
+                    auth_mode,
                     hash_password(password),
                     encrypt_password(password),
                     basic_user,
@@ -1263,6 +1275,9 @@ def update_service(
 ):
     admin = require_admin(request, csrf=True)
     current = service_row(service_id)
+    auth_mode = payload.auth_mode.strip().lower() or current["auth_mode"]
+    if auth_mode not in ("npm", "middleware"):
+        raise HTTPException(status_code=400, detail="请选择接入方式：NPM 或业务代码")
     basic_user = payload.basic_username.strip()
     basic_enc = ""
     if payload.basic_auth_enabled:
@@ -1278,7 +1293,7 @@ def update_service(
         conn.execute(
             """
             UPDATE services
-            SET name = ?, public_url = ?, basic_username = ?,
+            SET name = ?, public_url = ?, auth_mode = ?, basic_username = ?,
                 basic_password_enc = ?, session_days = ?, enabled = ?,
                 notes = ?, updated_at = ?
             WHERE id = ?
@@ -1286,6 +1301,7 @@ def update_service(
             (
                 payload.name.strip(),
                 payload.public_url.strip(),
+                auth_mode,
                 basic_user,
                 basic_enc,
                 payload.session_days,
@@ -1430,7 +1446,12 @@ location @sso_login {{
     return 302 {login_url}?service={service['slug']}&next=https://$host$request_uri;
 }}
 """
-    return {"env": env, "nginx": nginx}
+    mode = service["auth_mode"] if service["auth_mode"] in ("npm", "middleware") else "npm"
+    if mode == "npm":
+        env = ""
+    else:
+        nginx = ""
+    return {"mode": mode, "env": env, "nginx": nginx}
 
 
 @app.get("/api/admin/overview")

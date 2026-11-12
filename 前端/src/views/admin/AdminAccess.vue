@@ -25,6 +25,7 @@ const serviceForm = reactive({
   slug: '',
   public_url: '',
   password: '',
+  auth_mode: '',
   basic_auth_enabled: false,
   basic_username: '',
   basic_password: '',
@@ -64,6 +65,7 @@ function resetServiceForm() {
     slug: '',
     public_url: '',
     password: '',
+    auth_mode: '',
     basic_auth_enabled: false,
     basic_username: '',
     basic_password: '',
@@ -124,6 +126,7 @@ function openEditService(item) {
     slug: item.slug,
     public_url: item.public_url,
     password: '',
+    auth_mode: item.auth_mode || 'npm',
     basic_auth_enabled: !!item.basic_auth,
     basic_username: item.basic_username || '',
     basic_password: '',
@@ -139,9 +142,13 @@ function openEditService(item) {
 }
 
 async function saveService() {
-  savingService.value = true
   error.value = ''
   notice.value = ''
+  if (!serviceForm.auth_mode) {
+    error.value = '请选择接入方式：NPM 或业务代码'
+    return
+  }
+  savingService.value = true
   try {
     if (editingService.value) {
       await api(`/api/admin/services/${editingService.value.id}`, {
@@ -149,6 +156,7 @@ async function saveService() {
         body: JSON.stringify({
           name: serviceForm.name,
           public_url: serviceForm.public_url,
+          auth_mode: serviceForm.auth_mode,
           basic_auth_enabled: serviceForm.basic_auth_enabled,
           basic_username: serviceForm.basic_username,
           basic_password: serviceForm.basic_password,
@@ -396,6 +404,14 @@ onMounted(load)
           <input v-model="serviceForm.name" required placeholder="TaskOps" />
         </label>
         <label>
+          接入方式
+          <select v-model="serviceForm.auth_mode" required>
+            <option value="" disabled>请选择</option>
+            <option value="npm">NPM 反代（无需代码）</option>
+            <option value="middleware">业务代码（auth.py）</option>
+          </select>
+        </label>
+        <label>
           服务 ID
           <input
             v-model="serviceForm.slug"
@@ -419,11 +435,11 @@ onMounted(load)
             autocomplete="new-password"
           />
         </label>
-        <label class="checkbox wide">
+        <label v-if="serviceForm.auth_mode === 'npm'" class="checkbox wide">
           <input v-model="serviceForm.basic_auth_enabled" type="checkbox" />
           上游使用 Basic Auth
         </label>
-        <template v-if="serviceForm.basic_auth_enabled">
+        <template v-if="serviceForm.auth_mode === 'npm' && serviceForm.basic_auth_enabled">
           <label>
             Basic 用户名
             <input
@@ -483,7 +499,7 @@ onMounted(load)
             <tr v-for="item in domainServices" :key="item.id">
               <td>
                 <strong>{{ item.name }}</strong>
-                <div class="admin-sub">{{ item.slug }}<span v-if="item.basic_auth"> · Basic</span></div>
+                <div class="admin-sub">{{ item.slug }} · {{ item.auth_mode === 'middleware' ? '代码' : 'NPM' }}<span v-if="item.basic_auth"> · Basic</span></div>
               </td>
               <td><code>{{ item.cookie_name }}</code></td>
               <td>{{ item.session_days }} 天</td>
@@ -558,20 +574,28 @@ onMounted(load)
             关闭
           </button>
         </header>
-        <label class="copy-label">
-          服务环境变量
-          <textarea :value="configInfo.env" readonly rows="10"></textarea>
-        </label>
-        <button class="admin-btn ghost" type="button" @click="copy(configInfo.env)">
-          复制环境变量
-        </button>
-        <label class="copy-label">
-          NPM / nginx 配置
-          <textarea :value="configInfo.nginx" readonly rows="16"></textarea>
-        </label>
-        <button class="admin-btn ghost" type="button" @click="copy(configInfo.nginx)">
-          复制 NPM 配置
-        </button>
+        <p class="admin-muted">
+          接入方式：
+          {{ configInfo.mode === 'middleware' ? '业务代码（auth.py）' : 'NPM 反代（无需代码）' }}
+        </p>
+        <template v-if="configInfo.env">
+          <label class="copy-label">
+            服务环境变量
+            <textarea :value="configInfo.env" readonly rows="10"></textarea>
+          </label>
+          <button class="admin-btn ghost" type="button" @click="copy(configInfo.env)">
+            复制环境变量
+          </button>
+        </template>
+        <template v-if="configInfo.nginx">
+          <label class="copy-label">
+            NPM / nginx 配置
+            <textarea :value="configInfo.nginx" readonly rows="16"></textarea>
+          </label>
+          <button class="admin-btn ghost" type="button" @click="copy(configInfo.nginx)">
+            复制 NPM 配置
+          </button>
+        </template>
       </div>
     </div>
   </div>
