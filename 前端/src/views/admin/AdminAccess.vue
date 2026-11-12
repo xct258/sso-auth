@@ -473,14 +473,50 @@ onMounted(load)
           服务名称
           <input v-model="serviceForm.name" required placeholder="TaskOps" />
         </label>
-        <label>
-          接入方式
-          <select v-model="serviceForm.auth_mode" required>
-            <option value="" disabled>请选择</option>
-            <option value="npm">NPM 反代（无需代码）</option>
-            <option value="middleware">业务代码（auth.py）</option>
-          </select>
-        </label>
+        <fieldset class="wide auth-mode-field">
+          <legend>接入方式</legend>
+          <div class="auth-mode-picker">
+            <label
+              :class="[
+                'auth-mode-option',
+                { active: serviceForm.auth_mode === 'npm' },
+              ]"
+            >
+              <input
+                v-model="serviceForm.auth_mode"
+                type="radio"
+                value="npm"
+                @change="error = ''"
+              />
+              <span class="auth-mode-copy">
+                <strong>NPM 反代</strong>
+                <small>无需改代码，适合 Webtop、opencode 等第三方服务</small>
+              </span>
+              <span class="auth-mode-tag">推荐</span>
+            </label>
+
+            <label
+              :class="[
+                'auth-mode-option',
+                { active: serviceForm.auth_mode === 'middleware' },
+              ]"
+            >
+              <input
+                v-model="serviceForm.auth_mode"
+                type="radio"
+                value="middleware"
+                @change="error = ''"
+              />
+              <span class="auth-mode-copy">
+                <strong>业务代码</strong>
+                <small>在服务里接入 auth.py，适合自己写的应用</small>
+              </span>
+            </label>
+          </div>
+          <small v-if="!serviceForm.auth_mode" class="auth-mode-hint">
+            请选择一种接入方式
+          </small>
+        </fieldset>
         <label>
           服务 ID
           <input

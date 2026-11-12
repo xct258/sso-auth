@@ -1313,3 +1313,99 @@ body.admin-mode #app {
   opacity: 0;
   transform: translateY(10px) scale(0.985);
 }
+
+/* 接入方式选择 */
+.auth-mode-field {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.auth-mode-field legend {
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.auth-mode-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.auth-mode-option {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+  padding: 13px 34px 13px 13px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.38);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.auth-mode-option:hover {
+  border-color: rgba(165, 180, 252, 0.35);
+  background: rgba(30, 41, 59, 0.45);
+}
+
+.auth-mode-option.active {
+  border-color: rgba(99, 102, 241, 0.7);
+  background: rgba(99, 102, 241, 0.13);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+}
+
+.auth-mode-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.auth-mode-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.auth-mode-copy strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.auth-mode-copy small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.auth-mode-tag {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.18);
+  color: #c7d2fe;
+  font-size: 10px;
+}
+
+.auth-mode-hint {
+  display: block;
+  margin-top: 8px;
+  color: #fda4af;
+  font-size: 11px;
+}
+
+@media (max-width: 620px) {
+  .auth-mode-picker {
+    grid-template-columns: 1fr;
+  }
+}
